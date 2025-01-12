@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../pages/addbasket.dart';
 import '../pages/scanqr.dart';
 
 Widget floatingButton(BuildContext context) {
@@ -9,15 +8,6 @@ Widget floatingButton(BuildContext context) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) {
         return const ScanQR();
       }));
-
-      // //scanQRCode();
-      // var qrCode = await Navigator.of(context).push<String>(MaterialPageRoute(
-      //   builder: (context) => const AddBasket(),
-      // ));
-      //
-      // if (qrCode != null) {
-      //   debugPrint("Okunan Barkod : $qrCode");
-      // }
     },
     backgroundColor: Colors.black87,
     elevation: 4,

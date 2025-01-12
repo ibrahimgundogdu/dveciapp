@@ -719,8 +719,7 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                             int _quantity =
                                                 int.parse((quantity.text));
 
-                                            var imagePath =
-                                                await _saveImageToDocuments();
+                                            //var imagePath = await _saveImageToDocuments();
 
                                             basketItem!.qrCode = itemCode;
                                             basketItem!.quantity = _quantity;

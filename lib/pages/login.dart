@@ -293,8 +293,8 @@ class _LoginPageState extends State<LoginPage> {
       if (_employee != null) {
         UserAuthentication auth = UserAuthentication(
             0,
-            _employee?.employee?.id,
-            _employee?.employee?.employeeName,
+            _employee.employee?.id,
+            _employee.employee?.employeeName,
             DateTime.now(),
             DateTime.now().add(const Duration(days: 10000)),
             token);
@@ -316,11 +316,11 @@ class _CheckboxItemState extends State<CheckboxItem> {
 
   @override
   Widget build(BuildContext context) {
-    Color getColor(Set<MaterialState> states) {
-      const Set<MaterialState> interactiveStates = <MaterialState>{
-        MaterialState.pressed,
-        MaterialState.hovered,
-        MaterialState.focused,
+    Color getColor(Set<WidgetState> states) {
+      const Set<WidgetState> interactiveStates = <WidgetState>{
+        WidgetState.pressed,
+        WidgetState.hovered,
+        WidgetState.focused,
       };
       if (states.any(interactiveStates.contains)) {
         return Colors.blue;
@@ -330,7 +330,7 @@ class _CheckboxItemState extends State<CheckboxItem> {
 
     return Checkbox(
       checkColor: Colors.white,
-      fillColor: MaterialStateProperty.resolveWith(getColor),
+      fillColor: WidgetStateProperty.resolveWith(getColor),
       value: isChecked,
       onChanged: (bool? value) {
         setState(() {
