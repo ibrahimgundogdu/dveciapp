@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart'
 import 'package:sqflite/sqflite.dart';
 
 import '../models/basket.dart';
+import '../models/basketfile.dart';
 import '../models/dveciprefix.dart';
 import '../models/userauthentication.dart';
 import '../models/customer.dart';
@@ -42,7 +43,8 @@ class DbHelper {
   void createDb(Database db, int version) async {
     await db.execute(
         "CREATE TABLE Basket (id INTEGER PRIMARY KEY AUTOINCREMENT, qrCode NVARCHAR(50), description NVARCHAR(250), quantity INTEGER, recordDate INTEGER )");
-    //await db.execute("DROP TABLE Color");
+    await db.execute(
+        "CREATE TABLE BasketFile (id INTEGER PRIMARY KEY AUTOINCREMENT, basketId INTEGER, imageFile NVARCHAR(250) )");
     await db.execute(
         "CREATE TABLE Color (id INTEGER PRIMARY KEY AUTOINCREMENT, colorNumber NVARCHAR(4),colorName NVARCHAR(50), manufactureType NVARCHAR(50))");
     await db.execute(
@@ -85,6 +87,17 @@ class DbHelper {
     });
   }
 
+  Future<Basket> getBasketItem(int id) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps =
+        await db.query("Basket", where: "id=?", whereArgs: [id], limit: 1);
+
+    Basket? basket = Basket.fromMap(maps.first);
+
+    return basket;
+  }
+
   Future<int> addBasket(Basket basket) async {
     Database db = await instance.database;
     String sql =
@@ -94,8 +107,18 @@ class DbHelper {
 
   Future<int> updateBasket(Basket basket) async {
     Database db = await instance.database;
-    return await db.update("Basket", basket.toMap(),
-        where: "id=?", whereArgs: [basket.id]);
+
+    String sql =
+        "UPDATE Basket SET qrCode = ?, description = ?, quantity = ? WHERE id = ?";
+    return await db.rawUpdate(sql, [
+      basket.qrCode,
+      basket.description,
+      basket.quantity,
+      basket.id,
+    ]);
+
+    // return await db.update("Basket", basket.toMap(),
+    //     where: "id=?", whereArgs: [basket.id]);
   }
 
   Future<int> removeBasket(int id) async {
@@ -106,6 +129,27 @@ class DbHelper {
   Future<int> removeAllBasket() async {
     Database db = await instance.database;
     return await db.delete("Basket");
+  }
+
+  // BasketItem
+
+  Future<List<BasketFile>> getBasketFiles(int id) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query("BasketFile",
+        where: "basketId=?", whereArgs: [id], orderBy: "id DESC");
+
+    return List.generate(maps.length, (i) {
+      return BasketFile(maps[i]['id'] as int, maps[i]['basketId'] as int,
+          maps[i]['imageFile']);
+    });
+  }
+
+  Future<int> addBasketFile(int basketId, String imageFile) async {
+    Database db = await instance.database;
+    String sql =
+        "INSERT INTO BasketFile (basketId,imageFile) VALUES($basketId,'$imageFile');";
+    return await db.rawInsert(sql);
   }
 
   // Color

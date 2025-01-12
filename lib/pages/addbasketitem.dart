@@ -1,4 +1,3 @@
-import 'package:currency_text_input_formatter/currency_text_input_formatter.dart';
 import '../models/dvecicolor.dart';
 import '../models/dveciprefix.dart';
 
@@ -15,8 +14,7 @@ import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
 
-import 'addbasket.dart';
-import 'detailbasketitem.dart';
+import 'basketlist.dart';
 
 class AddBasketItem extends StatefulWidget {
   const AddBasketItem({super.key});
@@ -55,10 +53,6 @@ class _AddBasketItemState extends State<AddBasketItem> {
   }
 
   void InitBasketLookup() async {
-    //prefixItems = await _dbHelper.getPrefixes();
-    //colorItems = await _dbHelper.getColors();
-    //sizeItems = await _dbHelper.getSizes();
-
     description.text = "";
     quantity.text = "1";
     serialNumber.text = itemModel.prefix;
@@ -214,7 +208,10 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                         width: 50,
                                         child: TextFormField(
                                           controller: serialNumber,
-                                          onChanged: (value) {},
+                                          readOnly: true,
+                                          onTap: () {
+                                            _showPrefixBottomSheet(context);
+                                          },
                                           textAlign: TextAlign.center,
                                           maxLength: 2,
                                           validator: (value) {
@@ -431,9 +428,12 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                         width: 50,
                                         child: TextFormField(
                                           controller: colorCode,
+                                          readOnly: true,
                                           maxLength: 2,
                                           keyboardType: TextInputType.number,
-                                          onChanged: (value) {},
+                                          onTap: () {
+                                            _showColorBottomSheet(context);
+                                          },
                                           textAlign: TextAlign.center,
                                           decoration: InputDecoration(
                                               isDense: true,
@@ -548,245 +548,6 @@ class _AddBasketItemState extends State<AddBasketItem> {
                           const SizedBox(
                             height: 30.0,
                           ),
-                          SizedBox(
-                            height: 60,
-                            child: Padding(
-                              padding: const EdgeInsets.all(14.0),
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      shrinkWrap: true,
-                                      itemCount: prefixItems?.length ?? 0,
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 2),
-                                      itemBuilder: (context, index) {
-                                        return Container(
-                                          width: 50,
-                                          child: ElevatedButton(
-                                              onPressed: () {
-                                                setPrefix(
-                                                    prefixItems![index].prefix);
-                                              },
-                                              style: ButtonStyle(
-                                                alignment: Alignment.center,
-                                                fixedSize:
-                                                    WidgetStateProperty.all(
-                                                        Size(20, 40)),
-                                                padding:
-                                                    WidgetStateProperty.all(
-                                                        const EdgeInsets
-                                                            .symmetric(
-                                                            horizontal: 2)),
-                                                backgroundColor:
-                                                    const WidgetStatePropertyAll<
-                                                        Color>(Colors.green),
-                                              ),
-                                              child: Text(
-                                                  "${prefixItems?[index].prefix}",
-                                                  style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.white))),
-                                        );
-                                      },
-                                      separatorBuilder:
-                                          (BuildContext context, int index) {
-                                        return const SizedBox(
-                                          width: 2,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Divider(
-                            color: Colors.grey[200], // Çizginin rengi
-                            height:
-                                20, // Divider'in üst ve altındaki boşluğun toplam yüksekliği
-                            thickness: 1, // Çizginin kalınlığı
-                            indent: 10, // Çizginin sol taraftan başlama boşluğu
-                            endIndent: 10, // Çizginin sağ tarafta bitme boşluğu
-                          ),
-                          SizedBox(
-                            height: 80,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      shrinkWrap: true,
-                                      itemCount: sizeItems?.length ?? 0,
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 2),
-                                      itemBuilder: (context, index) {
-                                        return Container(
-                                          width: 100,
-                                          child: ElevatedButton(
-                                              onPressed: () {
-                                                if (sizeItems![index].id <= 9) {
-                                                  setSize('0' +
-                                                      sizeItems![index]
-                                                          .id
-                                                          .toString());
-                                                } else {
-                                                  setSize(sizeItems![index]
-                                                      .id
-                                                      .toString());
-                                                }
-                                              },
-                                              style: ButtonStyle(
-                                                alignment: Alignment.center,
-                                                fixedSize:
-                                                    WidgetStateProperty.all(
-                                                        Size(20, 40)),
-                                                padding:
-                                                    WidgetStateProperty.all(
-                                                        const EdgeInsets
-                                                            .symmetric(
-                                                            horizontal: 2)),
-                                                backgroundColor:
-                                                    const WidgetStatePropertyAll<
-                                                            Color>(
-                                                        Colors.deepOrange),
-                                              ),
-                                              child: Column(
-                                                children: [
-                                                  const SizedBox(
-                                                    height: 6,
-                                                  ),
-                                                  Text(
-                                                      sizeItems![index].id <= 9
-                                                          ? "#0${sizeItems?[index].id}"
-                                                          : "#${sizeItems?[index].id}",
-                                                      style: const TextStyle(
-                                                          fontSize: 10,
-                                                          color: Colors.white)),
-                                                  Text(
-                                                      "${sizeItems?[index].code}",
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      )),
-                                                ],
-                                              )),
-                                        );
-                                      },
-                                      separatorBuilder:
-                                          (BuildContext context, int index) {
-                                        return const SizedBox(
-                                          width: 4,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Divider(
-                            color: Colors.grey[200], // Çizginin rengi
-                            height:
-                                20, // Divider'in üst ve altındaki boşluğun toplam yüksekliği
-                            thickness: 1, // Çizginin kalınlığı
-                            indent: 10, // Çizginin sol taraftan başlama boşluğu
-                            endIndent: 10, // Çizginin sağ tarafta bitme boşluğu
-                          ),
-                          SizedBox(
-                            height: 70,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      shrinkWrap: true,
-                                      itemCount: colorItems?.length ?? 0,
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 2),
-                                      itemBuilder: (context, index) {
-                                        return Container(
-                                          width: 250,
-                                          child: ElevatedButton(
-                                              onPressed: () {
-                                                setColor(colorItems![index]
-                                                    .colorNumber
-                                                    .toString());
-                                              },
-                                              child: Column(
-                                                children: [
-                                                  SizedBox(
-                                                    height: 8,
-                                                  ),
-                                                  Text(
-                                                      "#${colorItems?[index].colorNumber}",
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      )),
-                                                  Text(
-                                                      "${colorItems?[index].colorName}",
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      )),
-                                                  Text(
-                                                      "${colorItems?[index].manufactureType}",
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                      )),
-                                                ],
-                                              ),
-                                              style: ButtonStyle(
-                                                alignment: Alignment.center,
-                                                fixedSize:
-                                                    WidgetStateProperty.all(
-                                                        Size(20, 40)),
-                                                padding:
-                                                    WidgetStateProperty.all(
-                                                        const EdgeInsets
-                                                            .symmetric(
-                                                            horizontal: 2)),
-                                                backgroundColor:
-                                                    const WidgetStatePropertyAll<
-                                                        Color>(Colors.purple),
-                                              )),
-                                        );
-                                      },
-                                      separatorBuilder:
-                                          (BuildContext context, int index) {
-                                        return const SizedBox(
-                                          width: 4,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Divider(
-                            color: Colors.grey[200], // Çizginin rengi
-                            height:
-                                20, // Divider'in üst ve altındaki boşluğun toplam yüksekliği
-                            thickness: 1, // Çizginin kalınlığı
-                            indent: 10, // Çizginin sol taraftan başlama boşluğu
-                            endIndent: 10, // Çizginin sağ tarafta bitme boşluğu
-                          ),
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Column(
@@ -812,7 +573,7 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                     keyboardType: TextInputType.number,
                                     controller: quantity,
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                     validator: (value) {
@@ -834,11 +595,15 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                 ),
 
                                 Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(30),
+                                    color: Color(0XFFF4F5F7),
+                                  ),
                                   child: TextFormField(
                                     controller: description,
                                     onChanged: (value) {},
                                     keyboardType: TextInputType.multiline,
-                                    maxLines: 2,
+                                    maxLines: 6,
                                     decoration: InputDecoration(
                                       filled: true,
                                       fillColor: const Color(0xFFF4F5F7),
@@ -858,62 +623,48 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                             BorderRadius.circular(8.0),
                                       ),
                                     ),
-                                    validator: (value) {
-                                      if (value != null) {
-                                        if (value.isEmpty) {
-                                          return 'Description required';
-                                        } else if (value.length < 2) {
-                                          return 'Complete Description';
-                                        }
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(30),
-                                    color: Color(0XFFF4F5F7),
                                   ),
                                 ), //TextArea
                                 const SizedBox(
                                   height: 16.0,
                                 ),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                        elevation: 1,
-                                        shape: const CircleBorder(
-                                            side: BorderSide(
-                                                style: BorderStyle.solid,
-                                                width: 6,
-                                                color: Color(0xFFEAEFFF))),
-                                        padding: EdgeInsets.all(16),
-                                        backgroundColor: Color(0xFF6E7B89)),
-                                    onPressed: () async {
-                                      // CameraDescription _camera =
-                                      //     await GetCamera();
-                                      // Navigator.of(context).push(
-                                      //     MaterialPageRoute(builder: (context) {
-                                      //   return Takepicture(
-                                      //     camera: _camera,
-                                      //     itemCode: itemCode,
-                                      //   );
-                                      // }));
-                                    },
-                                    child: const Column(
-                                      children: [
-                                        Icon(
-                                          Icons.photo_camera_outlined,
-                                          color: Colors.white,
-                                          size: 36.0,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(
-                                  height: 16.0,
-                                ),
+                                // SizedBox(
+                                //   width: double.infinity,
+                                //   child: ElevatedButton(
+                                //     style: ElevatedButton.styleFrom(
+                                //         elevation: 1,
+                                //         shape: const CircleBorder(
+                                //             side: BorderSide(
+                                //                 style: BorderStyle.solid,
+                                //                 width: 6,
+                                //                 color: Color(0xFFEAEFFF))),
+                                //         padding: EdgeInsets.all(16),
+                                //         backgroundColor: Color(0xFF6E7B89)),
+                                //     onPressed: () async {
+                                //       // CameraDescription _camera =
+                                //       //     await GetCamera();
+                                //       // Navigator.of(context).push(
+                                //       //     MaterialPageRoute(builder: (context) {
+                                //       //   return Takepicture(
+                                //       //     camera: _camera,
+                                //       //     itemCode: itemCode,
+                                //       //   );
+                                //       // }));
+                                //     },
+                                //     child: const Column(
+                                //       children: [
+                                //         Icon(
+                                //           Icons.photo_camera_outlined,
+                                //           color: Colors.white,
+                                //           size: 36.0,
+                                //         ),
+                                //       ],
+                                //     ),
+                                //   ),
+                                // ),
+                                // const SizedBox(
+                                //   height: 16.0,
+                                // ),
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
@@ -925,7 +676,7 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                                 .colorScheme
                                                 .primary,
                                             padding: EdgeInsets.symmetric(
-                                                vertical: 16),
+                                                vertical: 10),
                                             shape: StadiumBorder())
                                         .copyWith(
                                             elevation:
@@ -940,9 +691,7 @@ class _AddBasketItemState extends State<AddBasketItem> {
                                         Navigator.of(context).push(
                                             MaterialPageRoute(
                                                 builder: (context) {
-                                          return const DetailBasketItem(
-                                            itemCode: "A.000000.00.00.000",
-                                          );
+                                          return const BasketList();
                                         }));
                                       }
                                     },
@@ -974,6 +723,62 @@ class _AddBasketItemState extends State<AddBasketItem> {
     await _dbHelper.addBasket(basket);
   }
 
+  void _showPrefixBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          child: Column(children: [
+            Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Select Code Prefix',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green[700]),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                itemCount: prefixItems?.length ?? 0,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    tileColor: Colors.transparent,
+                    title: Text(
+                      prefixItems![index].prefix,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              serialNumber.text == prefixItems![index].prefix
+                                  ? FontWeight.w900
+                                  : FontWeight.normal,
+                          color: serialNumber.text == prefixItems![index].prefix
+                              ? Colors.green[700]
+                              : Colors.black),
+                    ),
+                    onTap: () {
+                      serialNumber.text = prefixItems![index].prefix;
+                      setPrefix(serialNumber.text);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+                separatorBuilder: (context, index) {
+                  return Divider(
+                    color: Colors.grey[200],
+                    thickness: 1,
+                    height: 1,
+                  );
+                },
+              ),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
   void _showSizeBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -983,9 +788,9 @@ class _AddBasketItemState extends State<AddBasketItem> {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Text(
-                'Select Size',
+                'Select Size Number',
                 style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.red),
               ),
@@ -1001,7 +806,10 @@ class _AddBasketItemState extends State<AddBasketItem> {
                       style:
                           TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                     ),
-                    title: Text(sizeItems![index].code),
+                    title: Text(sizeItems![index].code,
+                        style: TextStyle(
+                          fontSize: 16,
+                        )),
                     onTap: () {
                       if (sizeItems![index].id <= 9) {
                         sizeCode.text = '0${sizeItems![index].id}';
@@ -1011,6 +819,69 @@ class _AddBasketItemState extends State<AddBasketItem> {
                       setSize(sizeCode.text);
                       Navigator.pop(context);
                     },
+                  );
+                },
+                separatorBuilder: (context, index) {
+                  return Divider(
+                    color: Colors.grey[200],
+                    thickness: 1,
+                    height: 1,
+                  );
+                },
+              ),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  void _showColorBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          child: Column(children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Select Color',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                itemCount: colorItems?.length ?? 0,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    tileColor: Colors.transparent,
+                    leading: Text(
+                      colorItems![index].colorNumber!,
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    title: Text(
+                      colorItems![index].colorName!,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              colorCode.text == colorItems![index].colorNumber
+                                  ? FontWeight.w900
+                                  : FontWeight.normal,
+                          color:
+                              colorCode.text == colorItems![index].colorNumber
+                                  ? Colors.deepPurple
+                                  : Colors.black),
+                    ),
+                    onTap: () {
+                      colorCode.text = colorItems![index].colorNumber!;
+                      setColor(colorCode.text);
+                      Navigator.pop(context);
+                    },
+                    trailing: Text(colorItems![index].manufactureType!),
                   );
                 },
                 separatorBuilder: (context, index) {

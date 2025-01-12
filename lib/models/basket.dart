@@ -19,7 +19,7 @@ class Basket {
     map["qrCode"] = qrCode;
     map["description"] = description;
     map["quantity"] = quantity;
-    map["recordDate"] = recordDate;
+    map["recordDate"] = recordDate?.millisecondsSinceEpoch;
 
     return map;
   }

@@ -5,7 +5,6 @@ import '../database/db_helper.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
-import 'addbasket.dart';
 
 class CustomerList extends StatefulWidget {
   const CustomerList({super.key});
