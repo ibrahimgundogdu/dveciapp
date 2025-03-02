@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Directory;
 
+import 'package:dveci_app/models/customeruser.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:path/path.dart' show join;
@@ -8,10 +9,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory;
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/basket.dart';
 import '../models/basketfile.dart';
 import '../models/dveciprefix.dart';
+import '../models/saleorderrow.dart';
 import '../models/userauthentication.dart';
 import '../models/customer.dart';
 import '../models/dvecicolor.dart';
@@ -133,6 +136,18 @@ class DbHelper {
 
   // BasketItem
 
+  Future<List<BasketFile>?> getBasketFilesAll() async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps =
+        await db.query("BasketFile", orderBy: "id DESC");
+
+    return List.generate(maps.length, (i) {
+      return BasketFile(maps[i]['id'] as int, maps[i]['basketId'] as int,
+          maps[i]['imageFile']);
+    });
+  }
+
   Future<List<BasketFile>> getBasketFiles(int id) async {
     Database? db = await instance.database;
 
@@ -150,6 +165,11 @@ class DbHelper {
     String sql =
         "INSERT INTO BasketFile (basketId,imageFile) VALUES($basketId,'$imageFile');";
     return await db.rawInsert(sql);
+  }
+
+  Future<int> removeBasketFile(int id) async {
+    Database db = await instance.database;
+    return await db.delete("BasketFile", where: "id=?", whereArgs: [id]);
   }
 
   // Color
@@ -303,14 +323,65 @@ class DbHelper {
 
   Future<int> addCustomer(Customer customer) async {
     Database db = await instance.database;
+
     String sql =
-        "INSERT INTO Customer (accountCode, customerName,address ,taxOffice, taxNumber, uid) VALUES('${customer.accountCode}','${customer.customerName}' ,'${customer.address}','${customer.taxOffice}','${customer.taxNumber}','${customer.uid}');";
-    return await db.rawInsert(sql);
+        "INSERT INTO Customer (accountCode, customerName,address ,taxOffice, taxNumber, uid) VALUES(?, ?, ?, ?, ?, ?)";
+    return await db.rawInsert(sql, [
+      customer.accountCode,
+      customer.customerName,
+      customer.address,
+      customer.taxOffice,
+      customer.taxNumber,
+      customer.uid
+    ]);
   }
 
   Future resetCustomer() async {
     Database db = await instance.database;
     await db.execute('DELETE FROM Customer; VACUUM;');
+  }
+
+  // CustomerUser
+
+  Future<List<CustomerUser>> getCustomerUsers() async {
+    Database db = await instance.database;
+
+    final List<Map<String, dynamic>> maps =
+        await db.query("CustomerUser", orderBy: "contactName");
+
+    var list = List.generate(maps.length, (i) {
+      return CustomerUser(
+          maps[i]['id'],
+          maps[i]['accountCode'],
+          maps[i]['contactName'],
+          maps[i]['positionName'],
+          maps[i]['departmentName'],
+          maps[i]['phoneNumber'],
+          maps[i]['emailAddress'],
+          maps[i]['uid']);
+    });
+    return list;
+  }
+
+  Future<int> addCustomerUser(CustomerUser customerUser) async {
+    Database db = await instance.database;
+
+    String sql =
+        "INSERT INTO CustomerUser (accountCode, contactName,positionName ,departmentName, phoneNumber, emailAddress, uid) VALUES(?, ?, ?, ?, ?, ?, ?)";
+    return await db.rawInsert(sql, [
+      customerUser.accountCode,
+      customerUser.contactName,
+      customerUser.positionName,
+      customerUser.departmentName,
+      customerUser.phoneNumber,
+      customerUser.emailAddress,
+      customerUser.uid
+    ]);
+  }
+
+  Future resetCustomerUser() async {
+    Database db = await instance.database;
+    await db.execute('DELETE FROM CustomerUser; VACUUM;');
   }
 
   // SaleOrderStatus
@@ -377,6 +448,60 @@ class DbHelper {
     });
   }
 
+  // Order
+  Future<List<SaleOrderRow>> getOrderRows(int orderId) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query("SaleOrderRow",
+        where: "orderId=?", whereArgs: [orderId], orderBy: "id");
+
+    return List.generate(maps.length, (i) {
+      return SaleOrderRow(
+          maps[i]['id'] as int,
+          maps[i]['orderId'] as int,
+          maps[i]['productCode'],
+          maps[i]['itemCode'],
+          maps[i]['qrCode'],
+          maps[i]['itemColorNumber'],
+          maps[i]['itemColorName'],
+          maps[i]['itemSize'],
+          maps[i]['itemPageNumber'] as int?,
+          maps[i]['unit'],
+          maps[i]['quantity'] as double,
+          maps[i]['unitPrice'] as double,
+          maps[i]['total'] as double,
+          maps[i]['taxRate'] as double,
+          maps[i]['tax'] as double,
+          maps[i]['amount'] as double,
+          maps[i]['currency'],
+          maps[i]['description'],
+          maps[i]['rowStatusId'] as int?,
+          maps[i]['uid']);
+    });
+  }
+
+  Future<int> addOrder() async {
+    Database? db = await instance.database;
+    DateTime now = DateTime.now();
+    var uuid = const Uuid();
+    String newGuid = uuid.v4();
+
+    var user = await getUserAuthenticated();
+    var basketRows = await getBasket();
+
+    if (basketRows.isNotEmpty) {
+      // Add Order Header
+      SaleOrder saleOrder = SaleOrder(0, "", "", 0, 0, now, now, 1, "", 0,
+          "Recorded", 0.0, 0.0, 0.0, newGuid, 0, "0:0:0:0");
+      saleOrder.recordEmployeeId = user?.employeeId ?? 0;
+
+      // Add Order Rows
+      // Clean Basket
+    }
+
+    return 1;
+  }
+
 //Authentication
   Future<int> addUserAuthentication(UserAuthentication auth) async {
     Database db = await instance.database;
@@ -390,6 +515,22 @@ class DbHelper {
 
     final List<Map<String, dynamic>> maps = await db.query("UserAuthentication",
         where: "uid=?", whereArgs: [uid], limit: 1);
+
+    UserAuthentication? auth = UserAuthentication.fromMap(maps.first);
+
+    return auth;
+  }
+
+  Future<UserAuthentication?> getUserAuthenticated() async {
+    Database? db = await instance.database;
+    DateTime now = DateTime.now();
+    int timestamp = now.millisecondsSinceEpoch;
+
+    final List<Map<String, dynamic>> maps = await db.query("UserAuthentication",
+        where: "authenticationDate<=? AND expireDate>?",
+        whereArgs: [timestamp, timestamp],
+        orderBy: "id DESC",
+        limit: 1);
 
     UserAuthentication? auth = UserAuthentication.fromMap(maps.first);
 

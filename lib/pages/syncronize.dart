@@ -147,6 +147,24 @@ class _SyncronizeState extends State<Syncronize> {
                 height: 8,
               ),
               ElevatedButton(
+                  onPressed: () async {
+                    await _getCustomerUsers();
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const DveciCustomers()));
+                  },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepOrangeAccent[700],
+                      fixedSize: const Size(300, 20),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20))),
+                  child: const Text(
+                    "Get Customer Users",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  )),
+              const SizedBox(
+                height: 8,
+              ),
+              ElevatedButton(
                   onPressed: () {
                     _getOrderLookups();
                   },
@@ -210,6 +228,16 @@ class _SyncronizeState extends State<Syncronize> {
 
     for (var c in sizes) {
       _dbHelper.addCustomer(c);
+    }
+  }
+
+  Future<void> _getCustomerUsers() async {
+    var users = await _repository.getCustomerAllUsers();
+
+    await _dbHelper.resetCustomerUser();
+
+    for (var c in users) {
+      _dbHelper.addCustomerUser(c);
     }
   }
 

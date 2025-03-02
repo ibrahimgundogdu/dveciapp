@@ -14,7 +14,7 @@ import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
 
-import 'basketlist.dart';
+import '../pages/basketlist.dart';
 
 class AddBasketItem extends StatefulWidget {
   const AddBasketItem({super.key});

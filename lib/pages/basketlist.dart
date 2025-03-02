@@ -1,5 +1,7 @@
+import 'package:dveci_app/models/basketfile.dart';
+import 'package:dveci_app/pages/checkoutbasket.dart';
 import 'package:intl/intl.dart';
-
+import 'package:collection/collection.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
@@ -8,11 +10,11 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/basket.dart';
 
-import 'addbasketitem.dart';
-import 'detailbasketitem.dart';
+import '../pages/addbasketitem.dart';
+import '../pages/detailbasketitem.dart';
 
 class BasketList extends StatefulWidget {
-  const BasketList({Key? key}) : super(key: key);
+  const BasketList({super.key});
 
   @override
   State<BasketList> createState() => _BasketListState();
@@ -20,9 +22,12 @@ class BasketList extends StatefulWidget {
 
 class _BasketListState extends State<BasketList> {
   final DbHelper _dbHelper = DbHelper.instance;
+
   List<Basket>? basketItems = [];
+  List<BasketFile>? basketItemFiles = [];
 
   Future<void> _loadBasketItems() async {
+    basketItemFiles = await getBasketFileItems();
     basketItems = await getBasketItems();
     setState(() {});
   }
@@ -90,8 +95,8 @@ class _BasketListState extends State<BasketList> {
             TextButton(
               child: const Text('Delete'),
               onPressed: () {
-                Navigator.of(context).pop(); // Diyaloğu kapat
-                removeBasketItem(item); // Silme işlemini gerçekleştir
+                Navigator.of(context).pop();
+                removeBasketItem(item);
               },
             ),
           ],
@@ -103,7 +108,7 @@ class _BasketListState extends State<BasketList> {
   @override
   void initState() {
     super.initState();
-    _loadBasketItems(); // Sayfa ilk açıldığında basket öğelerini yükle
+    _loadBasketItems();
   }
 
   @override
@@ -116,8 +121,8 @@ class _BasketListState extends State<BasketList> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       appBar: AppBar(
         title: const Text(
-          "Basket List",
-          style: const TextStyle(
+          "BASKET LIST",
+          style: TextStyle(
               color: Color(0xFFB79C91),
               fontSize: 14,
               fontWeight: FontWeight.bold),
@@ -160,15 +165,16 @@ class _BasketListState extends State<BasketList> {
               itemCount: basketItems?.length ?? 0,
               itemBuilder: (context, index) {
                 final basketitem = basketItems?[index];
-
+                BasketFile? foundItem = basketItemFiles?.firstWhereOrNull(
+                    (item) => item.basketId == basketitem?.id);
                 return Dismissible(
                   key: UniqueKey(), // Her öğe için benzersiz bir key
                   direction: DismissDirection.endToStart, // Sola kaydırma
                   background: Container(
                     color: Colors.red,
                     alignment: Alignment.centerRight,
-                    padding: EdgeInsets.only(right: 20.0),
-                    child: Icon(Icons.delete, color: Colors.white),
+                    padding: const EdgeInsets.only(right: 20.0),
+                    child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   onDismissed: (direction) {
                     _showDeleteConfirmationDialogItem(basketitem);
@@ -185,16 +191,26 @@ class _BasketListState extends State<BasketList> {
                         children: [
                           Text(DateFormat('yyyy-MM-dd HH:mm:ss')
                               .format(basketitem.recordDate!)),
-                          SizedBox(
+                          const SizedBox(
                             width: 20,
                           ),
-                          basketitem.description.length > 0
-                              ? Icon(
+                          basketitem.description.isNotEmpty
+                              ? const Icon(
                                   Icons.speaker_notes_rounded,
                                   size: 18,
                                   color: Colors.grey,
                                 )
-                              : Text("")
+                              : const Text(""),
+                          const SizedBox(
+                            width: 10,
+                          ),
+                          foundItem != null
+                              ? const Icon(
+                                  Icons.insert_photo_outlined,
+                                  size: 20,
+                                  color: Colors.grey,
+                                )
+                              : const Text("")
                         ],
                       ),
                       trailing: Text(
@@ -219,6 +235,36 @@ class _BasketListState extends State<BasketList> {
                 );
               },
             )),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        backgroundColor: Colors.red[700],
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: const StadiumBorder())
+                    .copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
+                onPressed: () async {
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (context) {
+                    return const CheckoutBasket();
+                  }));
+                },
+                child: const Text(
+                  'MAKE AN ORDER',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(
+            height: 20,
+            child: Center(),
           )
         ],
       ),
@@ -242,6 +288,11 @@ class _BasketListState extends State<BasketList> {
     return items;
   }
 
+  Future<List<BasketFile>?> getBasketFileItems() async {
+    var items = await _dbHelper.getBasketFilesAll();
+    return items;
+  }
+
   Future removeBasketItem(Basket item) async {
     await _dbHelper.removeBasket(item.id);
 
@@ -249,7 +300,10 @@ class _BasketListState extends State<BasketList> {
       basketItems?.remove(item);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Item deleted!')),
+      const SnackBar(
+        content: Text('Item deleted!'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

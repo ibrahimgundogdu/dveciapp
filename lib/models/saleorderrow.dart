@@ -17,7 +17,7 @@ class SaleOrderRow {
   double? amount;
   String currency;
   String description;
-  String rowStatusId;
+  int? rowStatusId;
   String uid;
 
   SaleOrderRow(

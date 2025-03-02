@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dveci_app/models/customeruser.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
@@ -66,6 +67,30 @@ class SyncRepository {
       return result.map((e) => Customer.fromMap(e)).toList();
     }
     return customers;
+  }
+
+  Future<List<CustomerUser>> getCustomerUser(String customerCode) async {
+    var url = Uri.https('app.d-veci.net',
+        '/api/Customer/GetCustomerContacts?accountCode=$customerCode');
+    List<CustomerUser> customerUsers = <CustomerUser>[];
+    var response = await http.get(url);
+    if (response.statusCode == 200) {
+      final List result = json.decode(response.body);
+      return result.map((e) => CustomerUser.fromMap(e)).toList();
+    }
+    return customerUsers;
+  }
+
+  Future<List<CustomerUser>> getCustomerAllUsers() async {
+    var url =
+        Uri.https('app.d-veci.net', '/api/Customer/GetCustomerAllContacts');
+    List<CustomerUser> customerUsers = <CustomerUser>[];
+    var response = await http.get(url);
+    if (response.statusCode == 200) {
+      final List result = json.decode(response.body);
+      return result.map((e) => CustomerUser.fromMap(e)).toList();
+    }
+    return customerUsers;
   }
 
   Future<List<SaleOrderStatus>> getOrderStatus() async {

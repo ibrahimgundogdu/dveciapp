@@ -9,13 +9,13 @@ import '../models/dvecicolor.dart';
 import '../models/dveciprefix.dart';
 import '../models/dvecisize.dart';
 import '../models/itemmodel.dart';
+import '../pages/basketlist.dart';
 import '../services/helperservice.dart';
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
-import 'basketlist.dart';
 
 class DetailBasketItem extends StatefulWidget {
   final int itemId;
