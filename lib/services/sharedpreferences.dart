@@ -34,4 +34,10 @@ class ServiceSharedPreferences {
     var token = prefs.getString(key);
     return token;
   }
+
+  static Future<int?> getSharedInt(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    var token = prefs.getInt(key);
+    return token;
+  }
 }

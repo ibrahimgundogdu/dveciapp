@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:io' show Directory;
 
 import 'package:dveci_app/models/customeruser.dart';
@@ -23,6 +24,7 @@ import '../models/employee.dart';
 import '../models/saleorder.dart';
 import '../models/saleorderstatus.dart';
 import '../models/saleordertype.dart';
+import '../services/sharedpreferences.dart';
 
 class DbHelper {
   static const _databaseName = "Order.db";
@@ -480,20 +482,63 @@ class DbHelper {
     });
   }
 
-  Future<int> addOrder() async {
+  Future<int> addOrder(String orderUid, String customerCode, String userId,
+      String orderTypeId, String description) async {
     Database? db = await instance.database;
     DateTime now = DateTime.now();
-    var uuid = const Uuid();
-    String newGuid = uuid.v4();
+
+    int orderId = 0;
+    var _orderId = await ServiceSharedPreferences.getSharedInt("orderId");
+
+    if (_orderId != null && _orderId > 0) {
+      orderId = _orderId + 1;
+    } else {
+      orderId = orderId + 1;
+    }
+    ServiceSharedPreferences.setSharedInt("orderId", orderId);
+
+    int userIdInt = 0;
+    int orderTypeIdInt = 1;
+
+    try {
+      userIdInt = int.parse(userId);
+    } catch (e) {
+      userIdInt = 0;
+      print("Error parsing userId: $e");
+    }
+
+    try {
+      orderTypeIdInt = int.parse(orderTypeId);
+    } catch (e) {
+      orderTypeIdInt = 1;
+      print("Error parsing orderTypeId: $e");
+    }
 
     var user = await getUserAuthenticated();
     var basketRows = await getBasket();
 
     if (basketRows.isNotEmpty) {
       // Add Order Header
-      SaleOrder saleOrder = SaleOrder(0, "", "", 0, 0, now, now, 1, "", 0,
-          "Recorded", 0.0, 0.0, 0.0, newGuid, 0, "0:0:0:0");
-      saleOrder.recordEmployeeId = user?.employeeId ?? 0;
+      SaleOrder saleOrder = SaleOrder(
+          orderId,
+          "Temp${orderId}",
+          customerCode,
+          userIdInt,
+          user?.employeeId ?? 0,
+          now,
+          now,
+          orderTypeIdInt,
+          description,
+          0,
+          "Recorded",
+          0.0,
+          0.0,
+          0.0,
+          orderUid,
+          user?.employeeId ?? 0,
+          "0:0:0:0");
+
+      await db.insert("SaleOrder", saleOrder.toMap());
 
       // Add Order Rows
       // Clean Basket

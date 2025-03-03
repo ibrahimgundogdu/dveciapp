@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/customer.dart';
 import '../models/customeruser.dart';
@@ -11,11 +12,13 @@ import 'package:flutter/services.dart';
 import '../database/db_helper.dart';
 import '../models/basket.dart';
 
+import '../models/saleordertype.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
 
 import '../pages/basketlist.dart';
+import 'orderdetail.dart';
 
 class CheckoutBasket extends StatefulWidget {
   const CheckoutBasket({super.key});
@@ -33,6 +36,9 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
   TextEditingController userId = TextEditingController();
   TextEditingController userName = TextEditingController();
 
+  TextEditingController orderTypeId = TextEditingController();
+  TextEditingController orderTypeFull = TextEditingController();
+
   TextEditingController description = TextEditingController();
 
   late List<Customer>? customers = [];
@@ -40,6 +46,7 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
   late List<CustomerUser>? filteredCustomerUsers = [];
   late List<Basket>? basketItems = [];
   late List<Customer>? _filteredCustomers = [];
+  late List<SaleOrderType>? orderTypes = [];
   String _searchQuery = '';
 
   final formKey = GlobalKey<FormState>();
@@ -49,10 +56,13 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
     super.initState();
     customerCodeFull.text = "120.00.00 - No Customer";
     userName.text = "#0 - No Contact";
+    orderTypeId.text = "1";
+    orderTypeFull.text = "1 - Sales Order";
 
     _loadCustomers();
     _loadCustomerUsers();
     _loadBasketItems();
+    _loadOrderTypes();
 
     InitBasketLookup();
   }
@@ -74,6 +84,10 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
 
   Future<void> _loadBasketItems() async {
     basketItems = await _dbHelper.getBasket();
+  }
+
+  Future<void> _loadOrderTypes() async {
+    orderTypes = await _dbHelper.getSaleOrderType();
   }
 
   Future<void> _filterCustomerUsers() async {
@@ -185,7 +199,7 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                                 alignment: Alignment.centerLeft,
                                 child: Padding(
                                   padding: EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Text("CUSTOMER USER",
+                                  child: Text("CUSTOMER CONTACT",
                                       style: TextStyle(
                                           fontSize: 11,
                                           color: Color(0XFF1B5E20),
@@ -207,6 +221,66 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                                   fillColor: Color(0xFFF4F5F7),
                                   alignLabelWithHint: true,
                                   hintText: "#0",
+                                  hintStyle: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0XFFC0C7D1)),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 1, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderSide: BorderSide.none,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value != null) {
+                                    if (value.isEmpty) {
+                                      userId.text = "0";
+                                      return null;
+                                    }
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        )),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              child: const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Text("ORDER TYPE",
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0XFF1B5E20),
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              child: TextFormField(
+                                controller: orderTypeFull,
+                                readOnly: true,
+                                onTap: () {
+                                  _showOrderTypeBottomSheet(context);
+                                },
+                                textAlign: TextAlign.start,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: Color(0xFFF4F5F7),
+                                  alignLabelWithHint: true,
+                                  hintText: "1",
                                   hintStyle: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -290,9 +364,21 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                               if (formIsValid == true) {
                                 //addbasket(itemCode, description.text);
 
+                                var uuid = const Uuid();
+                                String orderUid = uuid.v4();
+
+                                var OrderId = await _dbHelper.addOrder(
+                                    orderUid,
+                                    customerCode.text,
+                                    userId.text,
+                                    orderTypeId.text,
+                                    description.text);
+
                                 Navigator.of(context)
                                     .push(MaterialPageRoute(builder: (context) {
-                                  return const BasketList();
+                                  return OrderDetail(
+                                    orderUid: orderUid,
+                                  );
                                 }));
                               }
                             },
@@ -342,8 +428,13 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Search Customer',
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        alignLabelWithHint: true,
                         prefixIcon: Icon(Icons.search),
                         border: OutlineInputBorder(
+                          borderSide: BorderSide.none,
                           borderRadius: BorderRadius.circular(10.0),
                         ),
                       ),
@@ -478,6 +569,75 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                           userId.text = '${filteredCustomerUsers![index].id}';
                           userName.text =
                               '#${filteredCustomerUsers![index].id} - ${filteredCustomerUsers![index].contactName}';
+
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                    separatorBuilder: (context, index) {
+                      return Divider(
+                        color: Colors.grey[200],
+                        thickness: 1,
+                        height: 1,
+                      );
+                    },
+                  ),
+                ),
+              ]),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showOrderTypeBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return Container(
+              height: constraints.maxHeight * 0.5, // Ekranın %60'ı
+              child: Column(children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Select Order Type',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: orderTypes?.length ?? 0,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        tileColor: Colors.transparent,
+                        leading: Text(
+                          '#${orderTypes![index].id}',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  orderTypeId.text == '${orderTypes![index].id}'
+                                      ? Colors.green[700]
+                                      : Colors.black),
+                        ),
+                        title: Text(orderTypes![index].typeName,
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: orderTypeId.text ==
+                                        '${orderTypes![index].id}'
+                                    ? Colors.green[700]
+                                    : Colors.black)),
+                        onTap: () {
+                          orderTypeId.text = '${orderTypes![index].id}';
+                          orderTypeFull.text =
+                              '${orderTypes![index].id} - ${orderTypes![index].typeName}';
 
                           Navigator.pop(context);
                         },

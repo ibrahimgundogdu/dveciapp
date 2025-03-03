@@ -36,23 +36,47 @@ class SaleOrder {
       this.recordEmployeeId,
       this.recordIp);
 
-  SaleOrder.fromMap(Map<String, dynamic> m)
-      : this(
-            m['id'],
-            m['orderNumber'],
-            m['accountCode'],
-            m['customerUserId'],
-            m['saleEmployeeId'],
-            m['orderDate'],
-            m['orderSyncDate'],
-            m['orderTypeId'],
-            m['description'],
-            m['orderStatusID'],
-            m['statusName'],
-            m['netTotal'],
-            m['taxTotal'],
-            m['grossTotal'],
-            m['uid'],
-            m['recordEmployeeId'],
-            m['recordIp']);
+  // fromMap method
+  SaleOrder.fromMap(Map<String, dynamic> map)
+      : id = map['id'],
+        orderNumber = map['orderNumber'],
+        accountCode = map['accountCode'],
+        customerUserId = map['customerUserId'],
+        saleEmployeeId = map['saleEmployeeId'],
+        orderDate = DateTime.fromMillisecondsSinceEpoch(map['orderDate']),
+        orderSyncDate =
+            DateTime.fromMillisecondsSinceEpoch(map['orderSyncDate']),
+        orderTypeId = map['orderTypeId'],
+        description = map['description'],
+        orderStatusId = map['orderStatusId'],
+        statusName = map['statusName'],
+        netTotal = map['netTotal'],
+        taxTotal = map['taxTotal'],
+        grossTotal = map['grossTotal'],
+        uid = map['uid'],
+        recordEmployeeId = map['recordEmployeeId'],
+        recordIp = map['recordIp'];
+
+  // toMap method
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'orderNumber': orderNumber,
+      'accountCode': accountCode,
+      'customerUserId': customerUserId,
+      'saleEmployeeId': saleEmployeeId,
+      'orderDate': orderDate.millisecondsSinceEpoch,
+      'orderSyncDate': orderSyncDate.millisecondsSinceEpoch,
+      'orderTypeId': orderTypeId,
+      'description': description,
+      'orderStatusId': orderStatusId,
+      'statusName': statusName,
+      'netTotal': netTotal,
+      'taxTotal': taxTotal,
+      'grossTotal': grossTotal,
+      'uid': uid,
+      'recordEmployeeId': recordEmployeeId,
+      'recordIp': recordIp,
+    };
+  }
 }
