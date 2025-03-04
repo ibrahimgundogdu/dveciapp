@@ -19,6 +19,7 @@ class SaleOrderRow {
   String description;
   int? rowStatusId;
   String uid;
+  String orderUid;
 
   SaleOrderRow(
       this.id,
@@ -40,6 +41,7 @@ class SaleOrderRow {
       this.currency,
       this.description,
       this.rowStatusId,
+      this.orderUid,
       this.uid);
 
   SaleOrderRow.fromMap(Map<String, dynamic> m)
@@ -63,28 +65,6 @@ class SaleOrderRow {
             m['currency'],
             m['description'],
             m['rowStatusId'],
+            m['orderUid'],
             m['uid']);
 }
-
-//CREATE TABLE SaleOrderRow (
-// ID INTEGER PRIMARY KEY AUTOINCREMENT,
-// OrderId INTEGER,
-// ProductCode NVARCHAR(40),
-// ItemCode NVARCHAR(50),
-// QRCode NVARCHAR(50),
-// ItemColorNumber NVARCHAR(10),
-// ItemColorName NVARCHAR(150),
-// ItemSize NVARCHAR(50),
-// ItemPageNumber NVARCHAR(4),
-// Unit NVARCHAR(20),
-// Quantity REAL,
-// UnitPrice REAL,
-// Total REAL,
-// TaxRate REAL,
-// Tax REAL,
-// Amount REAL,
-// Currency NVARCHAR(4),
-// Description TEXT,
-// RowStatusID INTEGER,
-// UID TEXT
-// )

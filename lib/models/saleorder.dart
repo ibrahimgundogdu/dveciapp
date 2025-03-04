@@ -1,11 +1,12 @@
 class SaleOrder {
   int id;
+  int orderId;
   String orderNumber;
   String accountCode;
   int? customerUserId;
   int? saleEmployeeId;
-  DateTime orderDate;
-  DateTime orderSyncDate;
+  DateTime? orderDate;
+  DateTime? orderSyncDate;
   int? orderTypeId;
   String description;
   int? orderStatusId;
@@ -19,6 +20,7 @@ class SaleOrder {
 
   SaleOrder(
       this.id,
+      this.orderId,
       this.orderNumber,
       this.accountCode,
       this.customerUserId,
@@ -36,47 +38,54 @@ class SaleOrder {
       this.recordEmployeeId,
       this.recordIp);
 
-  // fromMap method
-  SaleOrder.fromMap(Map<String, dynamic> map)
-      : id = map['id'],
-        orderNumber = map['orderNumber'],
-        accountCode = map['accountCode'],
-        customerUserId = map['customerUserId'],
-        saleEmployeeId = map['saleEmployeeId'],
-        orderDate = DateTime.fromMillisecondsSinceEpoch(map['orderDate']),
-        orderSyncDate =
-            DateTime.fromMillisecondsSinceEpoch(map['orderSyncDate']),
-        orderTypeId = map['orderTypeId'],
-        description = map['description'],
-        orderStatusId = map['orderStatusId'],
-        statusName = map['statusName'],
-        netTotal = map['netTotal'],
-        taxTotal = map['taxTotal'],
-        grossTotal = map['grossTotal'],
-        uid = map['uid'],
-        recordEmployeeId = map['recordEmployeeId'],
-        recordIp = map['recordIp'];
+  SaleOrder.fromMap(Map<String, dynamic> m)
+      : this(
+            m['id'],
+            m['orderId'],
+            m['orderNumber'],
+            m['accountCode'],
+            m['customerUserId'],
+            m['saleEmployeeId'],
+            DateTime.fromMillisecondsSinceEpoch(m['orderDate'] as int),
+            DateTime.fromMillisecondsSinceEpoch(m['orderSyncDate'] as int),
+            m['orderTypeId'],
+            m['description'],
+            m['orderStatusId'],
+            m['statusName'],
+            m['netTotal'],
+            m['taxTotal'],
+            m['grossTotal'],
+            m['uid'],
+            m['recordEmployeeId'],
+            m['recordIp']);
 
-  // toMap method
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'orderNumber': orderNumber,
-      'accountCode': accountCode,
-      'customerUserId': customerUserId,
-      'saleEmployeeId': saleEmployeeId,
-      'orderDate': orderDate.millisecondsSinceEpoch,
-      'orderSyncDate': orderSyncDate.millisecondsSinceEpoch,
-      'orderTypeId': orderTypeId,
-      'description': description,
-      'orderStatusId': orderStatusId,
-      'statusName': statusName,
-      'netTotal': netTotal,
-      'taxTotal': taxTotal,
-      'grossTotal': grossTotal,
-      'uid': uid,
-      'recordEmployeeId': recordEmployeeId,
-      'recordIp': recordIp,
-    };
+    var map = Map<String, dynamic>();
+
+    map["id"] = id;
+    map["orderId"] = orderId;
+    map["orderNumber"] = orderNumber;
+    map["accountCode"] = accountCode;
+    map["customerUserId"] = customerUserId;
+    map["saleEmployeeId"] = saleEmployeeId;
+    map["orderDate"] = orderDate?.millisecondsSinceEpoch;
+    map["orderSyncDate"] = orderSyncDate?.millisecondsSinceEpoch;
+    map["orderTypeId"] = orderTypeId;
+    map["description"] = description;
+    map["orderId"] = orderId;
+    map["orderId"] = orderId;
+    map["orderId"] = orderId;
+    map["orderId"] = orderId;
+    map["description"] = description;
+    map["orderStatusId"] = orderStatusId;
+    map["statusName"] = statusName;
+    map["netTotal"] = netTotal;
+    map["taxTotal"] = taxTotal;
+    map["grossTotal"] = grossTotal;
+    map["uid"] = uid;
+    map["recordEmployeeId"] = recordEmployeeId;
+    map["recordIp"] = recordIp;
+
+    return map;
   }
 }

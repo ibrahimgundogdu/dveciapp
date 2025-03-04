@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:io' show Directory;
 
 import 'package:dveci_app/models/customeruser.dart';
@@ -59,11 +58,11 @@ class DbHelper {
     await db.execute(
         "CREATE TABLE Employee (id INTEGER PRIMARY KEY AUTOINCREMENT, employeeName NVARCHAR(120),email NVARCHAR(120),phoneNumber NVARCHAR(20),uid TEXT)");
     await db.execute(
-        "CREATE TABLE SaleOrder ( id INTEGER PRIMARY KEY AUTOINCREMENT, orderNumber NVARCHAR(20), accountCode NVARCHAR(20), customerUserID INTEGER, saleEmployeeID INTEGER, orderDate INTEGER, orderSyncDate INTEGER, orderTypeId INTEGER, description TEXT, orderStatusId INTEGER, statusName NVARCHAR(50), netTotal REAL, taxTotal REAL, grossTotal REAL, uid TEXT, recordEmployeeId INTEGER, recordIp NVARCHAR(20))");
+        "CREATE TABLE SaleOrder ( id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER, orderNumber NVARCHAR(20), accountCode NVARCHAR(20), customerUserId INTEGER, saleEmployeeId INTEGER, orderDate INTEGER, orderSyncDate INTEGER, orderTypeId INTEGER, description TEXT, orderStatusId INTEGER, statusName NVARCHAR(50), netTotal REAL, taxTotal REAL, grossTotal REAL, uid TEXT, recordEmployeeId INTEGER, recordIp NVARCHAR(20))");
     await db.execute(
-        "CREATE TABLE SaleOrderDocument (id INTEGER PRIMARY KEY AUTOINCREMENT,saleOrderId INTEGER, saleOrderRowId INTEGER,pathName NVARCHAR(50),documentName NVARCHAR(40))");
+        "CREATE TABLE SaleOrderDocument (id INTEGER PRIMARY KEY AUTOINCREMENT,saleOrderUid TEXT, saleOrderRowUid TEXT,pathName NVARCHAR(250),documentName NVARCHAR(50))");
     await db.execute(
-        "CREATE TABLE SaleOrderRow ( id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER, productCode NVARCHAR(40),itemCode NVARCHAR(50),qrCode NVARCHAR(50),itemColorNumber NVARCHAR(10),itemColorName NVARCHAR(150),itemSize NVARCHAR(50),itemPageNumber NVARCHAR(4),unit NVARCHAR(20),quantity REAL,  unitPrice REAL, total REAL, taxRate REAL,tax REAL,amount REAL,currency NVARCHAR(4),description TEXT,rowStatusId INTEGER,uid TEXT)");
+        "CREATE TABLE SaleOrderRow ( id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER, productCode NVARCHAR(40), itemCode NVARCHAR(50), qrCode NVARCHAR(50), itemColorNumber NVARCHAR(10), itemColorName NVARCHAR(150), itemSize NVARCHAR(50), itemPageNumber NVARCHAR(4), unit NVARCHAR(20), quantity REAL, unitPrice REAL, total REAL, taxRate REAL, tax REAL, amount REAL, currency NVARCHAR(4), description TEXT, rowStatusId INTEGER, orderUid TEXT, uid TEXT)");
     await db.execute(
         "CREATE TABLE SaleOrderStatus (id INTEGER PRIMARY KEY AUTOINCREMENT,statusName NVARCHAR(40),sortBy NVARCHAR(2))");
     await db.execute(
@@ -416,7 +415,23 @@ class DbHelper {
     return await db.insert("SaleOrderType", ordertype.toMap());
   }
 
-  Future Close() async {
+  Future<String> getOrderTypeName(int typeId) async {
+    Database db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'SaleOrderType', // Replace 'type' with your actual type table name
+      where: 'id = ?', // Assuming 'id' is the primary key in your type table
+      whereArgs: [typeId],
+    );
+
+    if (maps.isNotEmpty) {
+      return maps.first['typeName']
+          as String; // Assuming 'name' is the column for type name
+    } else {
+      return 'Unknown Type'; // Or handle the case where the type is not found
+    }
+  }
+
+  Future close() async {
     final db = await instance.database;
     db.close();
   }
@@ -425,29 +440,23 @@ class DbHelper {
   Future<List<SaleOrder>> getOrders() async {
     Database? db = await instance.database;
 
-    final List<Map<String, dynamic>> maps =
-        await db.query("SaleOrder", orderBy: "orderDate DESC");
+    var maps = await db.query("SaleOrder", orderBy: "orderDate DESC");
 
-    return List.generate(maps.length, (i) {
-      return SaleOrder(
-          maps[i]['id'] as int,
-          maps[i]['orderNumber'],
-          maps[i]['accountCode'],
-          maps[i]['customerUserID'] as int?,
-          maps[i]['saleEmployeeID'] as int?,
-          DateTime.parse(maps[i]['orderDate']),
-          DateTime.parse(maps[i]['orderSyncDate']),
-          maps[i]['orderTypeId'] as int?,
-          maps[i]['description'],
-          maps[i]['orderStatusId'] as int?,
-          maps[i]['statusName'],
-          maps[i]['netTotal'] as double,
-          maps[i]['taxTotal'] as double,
-          maps[i]['grossTotal'] as double,
-          maps[i]['uid'],
-          maps[i]['recordEmployeeId'] as int?,
-          maps[i]['recordIp']);
-    });
+    var list = List.generate(maps.length, (i) {
+      return SaleOrder.fromMap(maps[i]);
+    }).toList();
+
+    return list;
+  }
+
+  Future<SaleOrder?> getOrder(String uid) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps =
+        await db.query("SaleOrder", where: "uid=?", whereArgs: [uid], limit: 1);
+
+    SaleOrder? order = SaleOrder.fromMap(maps.first);
+    return order;
   }
 
   // Order
@@ -478,6 +487,7 @@ class DbHelper {
           maps[i]['currency'],
           maps[i]['description'],
           maps[i]['rowStatusId'] as int?,
+          maps[i]['orderUid'],
           maps[i]['uid']);
     });
   }
@@ -486,47 +496,52 @@ class DbHelper {
       String orderTypeId, String description) async {
     Database? db = await instance.database;
     DateTime now = DateTime.now();
-
-    int orderId = 0;
-    var _orderId = await ServiceSharedPreferences.getSharedInt("orderId");
-
-    if (_orderId != null && _orderId > 0) {
-      orderId = _orderId + 1;
-    } else {
-      orderId = orderId + 1;
-    }
-    ServiceSharedPreferences.setSharedInt("orderId", orderId);
-
-    int userIdInt = 0;
-    int orderTypeIdInt = 1;
+    var uuid = const Uuid();
 
     try {
-      userIdInt = int.parse(userId);
-    } catch (e) {
-      userIdInt = 0;
-      print("Error parsing userId: $e");
-    }
+      int orderId = 0;
+      var _orderId = await ServiceSharedPreferences.getSharedInt("orderId");
 
-    try {
-      orderTypeIdInt = int.parse(orderTypeId);
-    } catch (e) {
-      orderTypeIdInt = 1;
-      print("Error parsing orderTypeId: $e");
-    }
+      if (_orderId != null && _orderId > 0) {
+        orderId = _orderId + 1;
+      } else {
+        orderId = orderId + 1;
+      }
+      ServiceSharedPreferences.setSharedInt("orderId", orderId);
 
-    var user = await getUserAuthenticated();
-    var basketRows = await getBasket();
+      int userIdInt = 0;
+      int orderTypeIdInt = 1;
 
-    if (basketRows.isNotEmpty) {
-      // Add Order Header
-      SaleOrder saleOrder = SaleOrder(
+      try {
+        userIdInt = int.parse(userId);
+      } catch (e) {
+        userIdInt = 0;
+        print("Error parsing userId: $e");
+      }
+
+      try {
+        orderTypeIdInt = int.parse(orderTypeId);
+      } catch (e) {
+        orderTypeIdInt = 1;
+        print("Error parsing orderTypeId: $e");
+      }
+
+      var user = await getUserAuthenticated();
+      var basketRows = await getBasket();
+
+      if (basketRows.isNotEmpty) {
+        // Add Order Header
+
+        String sql =
+            "INSERT INTO saleOrder (orderId, orderNumber, accountCode ,customerUserId, saleEmployeeId, orderDate, orderSyncDate, orderTypeId, description, orderStatusId, statusName, netTotal, taxTotal, grossTotal, uid, recordEmployeeId, recordIp) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        await db.rawInsert(sql, [
           orderId,
-          "Temp${orderId}",
+          "Temp-$orderId",
           customerCode,
           userIdInt,
           user?.employeeId ?? 0,
-          now,
-          now,
+          now.millisecondsSinceEpoch,
+          now.millisecondsSinceEpoch,
           orderTypeIdInt,
           description,
           0,
@@ -536,14 +551,88 @@ class DbHelper {
           0.0,
           orderUid,
           user?.employeeId ?? 0,
-          "0:0:0:0");
+          "0:0:0:0"
+        ]);
 
-      await db.insert("SaleOrder", saleOrder.toMap());
+        // Add Order Rows
+        var order = await getOrder(orderUid);
+        var colors = await getColors();
+        var sizes = await getSizes();
 
-      // Add Order Rows
-      // Clean Basket
+        if (order != null) {
+          for (var item in basketRows) {
+            String myQrCode = item.qrCode; //"A.04441.27.66.585";
+            List<String> parts = myQrCode.split(".");
+            int pageNumber = 1;
+            DveciColor selectedColor = colors.first;
+            DveciSize selectedSize = sizes.first;
+
+            String orderRowUid = uuid.v4();
+
+            var filteredColor =
+                colors.where((color) => color.colorNumber == parts[3]);
+
+            if (filteredColor.isNotEmpty) {
+              selectedColor = filteredColor.first;
+            }
+
+            var filteredSize =
+                sizes.where((size) => size.id.toString() == parts[2]);
+
+            if (filteredSize.isNotEmpty) {
+              selectedSize = filteredSize.first;
+            }
+
+            try {
+              pageNumber = int.parse(parts[4]);
+            } catch (e) {
+              pageNumber = 1;
+              print("Error parsing pageNumber: $e");
+            }
+
+            String sqlRow =
+                "INSERT INTO SaleOrderRow (orderId, productCode, itemCode, qrCode, itemColorNumber, itemColorName, itemSize, itemPageNumber, unit, quantity, unitPrice, total, taxRate, tax, amount, currency, description, rowStatusId, orderUid, uid) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            await db.rawInsert(sqlRow, [
+              order.orderId,
+              "${parts[0]}.${parts[1]}",
+              "${parts[0]}.${parts[1]}.${parts[2]}.${parts[3]}",
+              item.qrCode,
+              selectedColor.colorNumber,
+              "${selectedColor.colorName} -${selectedColor.manufactureType}",
+              selectedSize.code,
+              pageNumber,
+              "AD",
+              item.quantity,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              "TRL",
+              item.description,
+              0,
+              order.uid,
+              orderRowUid
+            ]);
+
+            // Files
+            var files = await getBasketFiles(item.id);
+            if (files.isNotEmpty) {
+              for (var file in files) {
+                String sqlFile =
+                    "INSERT INTO SaleOrderDocument (saleOrderUid, saleOrderRowUid, pathName, documentName) VALUES(?, ?, ?, ?)";
+                await db.rawInsert(
+                    sqlFile, [order.uid, orderRowUid, file.imageFile, ""]);
+              }
+            }
+          }
+        }
+        // Clean Basket
+        await removeAllBasket();
+      }
+    } catch (e) {
+      print("Error Saving Order: $e");
     }
-
     return 1;
   }
 
@@ -568,12 +657,12 @@ class DbHelper {
 
   Future<UserAuthentication?> getUserAuthenticated() async {
     Database? db = await instance.database;
-    DateTime now = DateTime.now();
-    int timestamp = now.millisecondsSinceEpoch;
+    //DateTime now = DateTime.now();
+    //int timestamp = now.millisecondsSinceEpoch;
 
     final List<Map<String, dynamic>> maps = await db.query("UserAuthentication",
-        where: "authenticationDate<=? AND expireDate>?",
-        whereArgs: [timestamp, timestamp],
+        //where: "authenticationDate <= ? AND expireDate > ?",
+        //whereArgs: [timestamp, timestamp],
         orderBy: "id DESC",
         limit: 1);
 
