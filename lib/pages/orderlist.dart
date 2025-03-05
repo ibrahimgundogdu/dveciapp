@@ -32,7 +32,7 @@ class _OrderListState extends State<OrderList> {
     setState(() {});
   }
 
-  Future<void> _showDeleteConfirmationDialog(int id) async {
+  Future<void> _showDeleteConfirmationDialog(String uid) async {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -50,14 +50,15 @@ class _OrderListState extends State<OrderList> {
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
-                Navigator.of(context).pop(); // Diyaloğu kapat
+                Navigator.of(context).pop();
+                setState(() {});
               },
             ),
             TextButton(
               child: const Text('Delete'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Diyaloğu kapat
-                //removeAllBasket(); // Silme işlemini gerçekleştir
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _dbHelper.removeOrder(uid);
               },
             ),
           ],
@@ -120,19 +121,91 @@ class _OrderListState extends State<OrderList> {
               padding: const EdgeInsets.all(8),
               itemCount: saleOrders?.length ?? 0,
               itemBuilder: (context, index) {
-                return Dismissible(
-                  key: UniqueKey(),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20.0),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  onDismissed: (direction) {
-                    _showDeleteConfirmationDialog(saleOrders![index].id);
-                  },
-                  child: ListTile(
+                if (saleOrders?[index].orderStatusId == 0) {
+                  return Dismissible(
+                    key: UniqueKey(),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20.0),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    onDismissed: (direction) {
+                      _showDeleteConfirmationDialog(saleOrders![index].uid);
+                    },
+                    child: ListTile(
+                        leading: Text('#${saleOrders?[index].id.toString()}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: saleOrders?[index].orderStatusId == 0
+                                  ? Colors.deepOrange
+                                  : saleOrders?[index].orderStatusId == -1
+                                      ? Colors.grey
+                                      : Colors.black,
+                            )),
+                        title: Text(
+                          saleOrders![index].orderNumber,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                saleOrders![index].accountCode,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Colors.blueGrey),
+                                textAlign: TextAlign.start,
+                              ),
+                              Text(
+                                getSaleOrderTypeName(
+                                    saleOrders![index].orderTypeId!,
+                                    saleOrderTypes),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14),
+                                textAlign: TextAlign.start,
+                              ),
+                              Text(DateFormat('yyyy-MM-dd HH:mm:ss')
+                                  .format(saleOrders![index].orderDate!)),
+                              const SizedBox(
+                                width: 20,
+                              ),
+                              saleOrders![index].description.isNotEmpty
+                                  ? const Icon(
+                                      Icons.speaker_notes_rounded,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    )
+                                  : const Text(""),
+                              const SizedBox(
+                                width: 10,
+                              ),
+                            ],
+                          ),
+                        ),
+                        trailing: Text(
+                          saleOrders![index].statusName,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        onTap: () async {
+                          Navigator.of(context).push(MaterialPageRoute(
+                            builder: (context) => OrderDetail(
+                              uid: saleOrders![index].uid,
+                            ),
+                          ));
+                        },
+                        tileColor: Colors.white54),
+                  );
+                } else {
+                  return ListTile(
                       leading: Text('#${saleOrders?[index].id.toString()}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
@@ -196,12 +269,12 @@ class _OrderListState extends State<OrderList> {
                       onTap: () async {
                         Navigator.of(context).push(MaterialPageRoute(
                           builder: (context) => OrderDetail(
-                            orderUid: saleOrders![index].uid,
+                            uid: saleOrders![index].uid,
                           ),
                         ));
                       },
-                      tileColor: Colors.white54),
-                );
+                      tileColor: Colors.white54);
+                }
               },
               separatorBuilder: (context, index) {
                 return Divider(

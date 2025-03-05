@@ -377,7 +377,7 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                                 Navigator.of(context)
                                     .push(MaterialPageRoute(builder: (context) {
                                   return OrderDetail(
-                                    orderUid: orderUid,
+                                    uid: orderUid,
                                   );
                                 }));
                               }

@@ -322,6 +322,16 @@ class DbHelper {
     return list;
   }
 
+  Future<Customer?> getCustomer(String code) async {
+    Database db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query("Customer",
+        where: "accountCode=?", whereArgs: [code], limit: 1);
+
+    Customer? customer = Customer.fromMap(maps.first);
+
+    return customer;
+  }
+
   Future<int> addCustomer(Customer customer) async {
     Database db = await instance.database;
 
@@ -362,6 +372,16 @@ class DbHelper {
           maps[i]['uid']);
     });
     return list;
+  }
+
+  Future<CustomerUser?> getCustomerUser(int? id) async {
+    Database db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query("CustomerUser",
+        where: "id=?", whereArgs: [id], limit: 1);
+
+    CustomerUser? user = CustomerUser.fromMap(maps.first);
+
+    return user;
   }
 
   Future<int> addCustomerUser(CustomerUser customerUser) async {
@@ -459,12 +479,21 @@ class DbHelper {
     return order;
   }
 
+  Future<void> removeOrder(String uid) async {
+    Database? db = await instance.database;
+
+    await db.delete("SaleOrder", where: "uid=?", whereArgs: [uid]);
+    await db
+        .delete("SaleOrderDocument", where: "saleOrderUid=?", whereArgs: [uid]);
+    await db.delete("SaleOrderRow", where: "orderUid=?", whereArgs: [uid]);
+  }
+
   // Order
-  Future<List<SaleOrderRow>> getOrderRows(int orderId) async {
+  Future<List<SaleOrderRow>> getOrderRows(String uid) async {
     Database? db = await instance.database;
 
     final List<Map<String, dynamic>> maps = await db.query("SaleOrderRow",
-        where: "orderId=?", whereArgs: [orderId], orderBy: "id");
+        where: "orderUid=?", whereArgs: [uid], orderBy: "id");
 
     return List.generate(maps.length, (i) {
       return SaleOrderRow(
