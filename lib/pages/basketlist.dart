@@ -236,32 +236,33 @@ class _BasketListState extends State<BasketList> {
               },
             )),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SizedBox(
-              width: double.infinity,
-              height: 40,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                        foregroundColor:
-                            Theme.of(context).colorScheme.onPrimary,
-                        backgroundColor: Colors.red[700],
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: const StadiumBorder())
-                    .copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-                onPressed: () async {
-                  Navigator.of(context)
-                      .push(MaterialPageRoute(builder: (context) {
-                    return const CheckoutBasket();
-                  }));
-                },
-                child: const Text(
-                  'MAKE AN ORDER',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+          if (basketItems != null && basketItems!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: Colors.red[700],
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: const StadiumBorder())
+                      .copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
+                  onPressed: () async {
+                    Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (context) {
+                      return const CheckoutBasket();
+                    }));
+                  },
+                  child: const Text(
+                    'MAKE AN ORDER',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ),
-          ),
           const SizedBox(
             height: 20,
             child: Center(),

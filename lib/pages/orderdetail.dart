@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/db_helper.dart';
-import '../models/basket.dart';
 import '../models/customer.dart';
 import '../models/customeruser.dart';
 import '../models/saleorder.dart';
@@ -512,13 +511,8 @@ class _OrderDetailState extends State<OrderDetail> {
                                       final formIsValid =
                                           formKey.currentState?.validate();
                                       if (formIsValid == true) {
-                                        //addbasket(itemCode, description.text);
-
-                                        var uuid = const Uuid();
-                                        String orderUid = uuid.v4();
-
-                                        var OrderId = await _dbHelper.addOrder(
-                                            orderUid,
+                                        await _dbHelper.updateOrder(
+                                            widget.uid,
                                             customerCode.text,
                                             userId.text,
                                             orderTypeId.text,

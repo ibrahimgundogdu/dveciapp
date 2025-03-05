@@ -327,7 +327,10 @@ class DbHelper {
     final List<Map<String, dynamic>> maps = await db.query("Customer",
         where: "accountCode=?", whereArgs: [code], limit: 1);
 
-    Customer? customer = Customer.fromMap(maps.first);
+    Customer customer = Customer("120.00.00", "No Customer", "", "", "", "");
+    if (maps.isNotEmpty) {
+      customer = Customer.fromMap(maps.first);
+    }
 
     return customer;
   }
@@ -379,7 +382,11 @@ class DbHelper {
     final List<Map<String, dynamic>> maps = await db.query("CustomerUser",
         where: "id=?", whereArgs: [id], limit: 1);
 
-    CustomerUser? user = CustomerUser.fromMap(maps.first);
+    CustomerUser user =
+        CustomerUser(0, "120.00.00", "No User", "", "", "", "", "");
+    if (maps.isNotEmpty) {
+      user = CustomerUser.fromMap(maps.first);
+    }
 
     return user;
   }
@@ -663,6 +670,45 @@ class DbHelper {
       print("Error Saving Order: $e");
     }
     return 1;
+  }
+
+  Future<void> updateOrder(String orderUid, String customerCode, String userId,
+      String orderTypeId, String description) async {
+    Database? db = await instance.database;
+
+    var order = await getOrder(orderUid);
+    if (order != null) {
+      try {
+        int userIdInt = 0;
+        int orderTypeIdInt = 1;
+
+        try {
+          userIdInt = int.parse(userId);
+        } catch (e) {
+          userIdInt = 0;
+          print("Error parsing userId: $e");
+        }
+
+        try {
+          orderTypeIdInt = int.parse(orderTypeId);
+        } catch (e) {
+          orderTypeIdInt = 1;
+          print("Error parsing orderTypeId: $e");
+        }
+
+        String sql =
+            "UPDATE SaleOrder SET accountCode = ?, customerUserId = ?, orderTypeId = ?, description = ? WHERE uid = ?";
+        await db.rawUpdate(sql, [
+          customerCode,
+          userIdInt,
+          orderTypeId,
+          description,
+          orderUid,
+        ]);
+      } catch (e) {
+        print("Error Updating Order: $e");
+      }
+    }
   }
 
 //Authentication
