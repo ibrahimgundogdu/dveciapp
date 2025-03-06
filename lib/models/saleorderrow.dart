@@ -7,7 +7,7 @@ class SaleOrderRow {
   String itemColorNumber;
   String itemColorName;
   String itemSize;
-  int? itemPageNumber = 0;
+  String itemPageNumber;
   String unit;
   double? quantity = 1;
   double? unitPrice = 0;

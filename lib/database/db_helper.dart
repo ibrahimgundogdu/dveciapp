@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 import '../models/basket.dart';
 import '../models/basketfile.dart';
 import '../models/dveciprefix.dart';
+import '../models/saleorderdocument.dart';
 import '../models/saleorderrow.dart';
 import '../models/userauthentication.dart';
 import '../models/customer.dart';
@@ -171,6 +172,11 @@ class DbHelper {
   Future<int> removeBasketFile(int id) async {
     Database db = await instance.database;
     return await db.delete("BasketFile", where: "id=?", whereArgs: [id]);
+  }
+
+  Future<int> removeOrderFile(int id) async {
+    Database db = await instance.database;
+    return await db.delete("SaleOrderDocument", where: "id=?", whereArgs: [id]);
   }
 
   // Color
@@ -503,28 +509,22 @@ class DbHelper {
         where: "orderUid=?", whereArgs: [uid], orderBy: "id");
 
     return List.generate(maps.length, (i) {
-      return SaleOrderRow(
-          maps[i]['id'] as int,
-          maps[i]['orderId'] as int,
-          maps[i]['productCode'],
-          maps[i]['itemCode'],
-          maps[i]['qrCode'],
-          maps[i]['itemColorNumber'],
-          maps[i]['itemColorName'],
-          maps[i]['itemSize'],
-          maps[i]['itemPageNumber'] as int?,
-          maps[i]['unit'],
-          maps[i]['quantity'] as double,
-          maps[i]['unitPrice'] as double,
-          maps[i]['total'] as double,
-          maps[i]['taxRate'] as double,
-          maps[i]['tax'] as double,
-          maps[i]['amount'] as double,
-          maps[i]['currency'],
-          maps[i]['description'],
-          maps[i]['rowStatusId'] as int?,
-          maps[i]['orderUid'],
-          maps[i]['uid']);
+      SaleOrderRow? orderrow = SaleOrderRow.fromMap(maps[i]);
+      return orderrow;
+    });
+  }
+
+  Future<List<SaleOrderDocument>?> getOrderDocuments(String uid) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query("SaleOrderDocument",
+        where: "saleOrderUid=? AND saleOrderRowUid=?",
+        whereArgs: [uid, '-'],
+        orderBy: "id");
+
+    return List.generate(maps.length, (i) {
+      SaleOrderDocument? orderDocument = SaleOrderDocument.fromMap(maps[i]);
+      return orderDocument;
     });
   }
 
@@ -658,7 +658,7 @@ class DbHelper {
                 String sqlFile =
                     "INSERT INTO SaleOrderDocument (saleOrderUid, saleOrderRowUid, pathName, documentName) VALUES(?, ?, ?, ?)";
                 await db.rawInsert(
-                    sqlFile, [order.uid, orderRowUid, file.imageFile, ""]);
+                    sqlFile, [order.uid, orderRowUid, file.imageFile, "-"]);
               }
             }
           }
@@ -709,6 +709,13 @@ class DbHelper {
         print("Error Updating Order: $e");
       }
     }
+  }
+
+  Future<int> addOrderFile(String orderUid, String imageFile) async {
+    Database db = await instance.database;
+    String sql =
+        "INSERT INTO SaleOrderDocument (saleOrderUid, saleOrderRowUid, pathName, documentName) VALUES('$orderUid','-','$imageFile','-');";
+    return await db.rawInsert(sql);
   }
 
 //Authentication

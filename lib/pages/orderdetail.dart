@@ -1,12 +1,18 @@
+import 'dart:io';
+
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+
 import 'package:dveci_app/models/saleorderrow.dart';
 import 'package:dveci_app/pages/basketlist.dart';
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 import '../database/db_helper.dart';
 import '../models/customer.dart';
 import '../models/customeruser.dart';
 import '../models/saleorder.dart';
+import '../models/saleorderdocument.dart';
 import '../models/saleordertype.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
@@ -38,8 +44,10 @@ class _OrderDetailState extends State<OrderDetail> {
   late Customer? customer;
   late CustomerUser? customerUser;
   late String? orderTypeName;
+  bool _isLoading = true;
 
   late List<SaleOrderRow>? orderRows = [];
+  late List<SaleOrderDocument>? orderDocuments = [];
   late List<Customer>? customers = [];
   late List<Customer>? _filteredCustomers = [];
   late List<CustomerUser>? customerUsers = [];
@@ -54,10 +62,7 @@ class _OrderDetailState extends State<OrderDetail> {
   @override
   void initState() {
     super.initState();
-    customerCodeFull.text = "120.00.00 - No Customer";
-    userName.text = "#0 - No Contact";
-    orderTypeId.text = "1";
-    orderTypeFull.text = "1 - Sales Order";
+    _loadData();
 
     _loadCustomers();
     _loadCustomerUsers();
@@ -65,13 +70,45 @@ class _OrderDetailState extends State<OrderDetail> {
     _loadOrderTypes();
   }
 
-  Future<SaleOrder?> getOrder() async {
-    order = (await _dbHelper.getOrder(widget.uid))!;
-    customer = await _dbHelper.getCustomer(order.accountCode);
-    customerUser = await _dbHelper.getCustomerUser(order.customerUserId);
-    orderTypeName = await _dbHelper.getOrderTypeName(order.orderTypeId!);
+  Future<void> _loadData() async {
+    try {
+      order = (await _dbHelper.getOrder(widget.uid))!; // Fetch the order
+      customer = await _dbHelper.getCustomer(order.accountCode);
+      customerUser = await _dbHelper.getCustomerUser(order.customerUserId);
+      orderTypeName = await _dbHelper.getOrderTypeName(order.orderTypeId!);
 
-    return order;
+      // ... load other data ...
+      await _loadCustomers();
+      await _loadCustomerUsers();
+      await _loadOrderRows();
+      await _loadOrderDocuments();
+      await _loadOrderTypes();
+
+      // Update the UI after data is loaded
+      setState(() {
+        _isLoading = false; // Set loading to false
+        customerCode.text = order.accountCode;
+        customerCodeFull.text = customer != null
+            ? "${customer!.accountCode} - ${customer?.customerName}"
+            : "120.00.00 - No Customer";
+        userId.text = customerUser != null ? "${customerUser?.id}" : "0";
+
+        userName.text = customerUser != null
+            ? "#${customerUser?.id} - ${customerUser?.contactName}"
+            : "#0 - No Contact";
+
+        description.text = order.description;
+        orderTypeId.text = order.orderTypeId.toString();
+        orderTypeFull.text = order.orderTypeId != null
+            ? "${order.orderTypeId} - $orderTypeName"
+            : "1 - Sales Order";
+      });
+    } catch (e) {
+      // Handle errors here (e.g., show an error message)
+      print("Error loading data: $e");
+      // You might want to set _isLoading to false here as well,
+      // or show an error state in the UI.
+    }
   }
 
   Future<void> _loadCustomers() async {
@@ -88,6 +125,10 @@ class _OrderDetailState extends State<OrderDetail> {
     orderRows = await _dbHelper.getOrderRows(widget.uid);
   }
 
+  Future<void> _loadOrderDocuments() async {
+    orderDocuments = await _dbHelper.getOrderDocuments(widget.uid);
+  }
+
   Future<void> _loadOrderTypes() async {
     orderTypes = await _dbHelper.getSaleOrderType();
   }
@@ -97,6 +138,94 @@ class _OrderDetailState extends State<OrderDetail> {
         ?.where((user) => user.accountCode == customerCode.text)
         .toList();
     //setState(() {});
+  }
+
+  File? _storedImage;
+  final picker = ImagePicker();
+
+  Future<void> _takePicture() async {
+    final imageFile = await picker.pickImage(
+      source: ImageSource.camera,
+    );
+    setState(() {
+      _storedImage = File(imageFile?.path ?? "");
+    });
+    await _saveImageToDocuments();
+  }
+
+  Future<void> _selectPicture() async {
+    final imageFile = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+    setState(() {
+      _storedImage = File(imageFile?.path ?? "");
+    });
+    await _saveImageToDocuments();
+  }
+
+  Future<void> _saveImageToDocuments() async {
+    if (_storedImage == null) {
+      return;
+    }
+
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = 'oimage_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedImage = File('${appDir.path}/$fileName');
+      await _storedImage!.copy(savedImage.path);
+
+      await _dbHelper.addOrderFile(widget.uid, savedImage.path);
+      orderDocuments = await _dbHelper.getOrderDocuments(widget.uid);
+    } catch (e) {}
+  }
+
+  Future<void> _showDeleteConfirmationDialogItem(SaleOrderDocument item) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Confirmation'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Do you want to delete item?'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {});
+              },
+            ),
+            TextButton(
+              child: const Text('Delete'),
+              onPressed: () {
+                Navigator.of(context).pop(); // Diyaloğu kapat
+                removeOrderFileItem(item); // Silme işlemini gerçekleştir
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future removeOrderFileItem(SaleOrderDocument item) async {
+    await _dbHelper.removeOrderFile(item.id);
+
+    setState(() {
+      orderDocuments?.remove(item);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Item deleted!'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -133,41 +262,16 @@ class _OrderDetailState extends State<OrderDetail> {
           ),
         ],
       ),
-      body: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Form(
-          key: formKey,
-          child: FutureBuilder<SaleOrder?>(
-              future: getOrder(),
-              builder:
-                  (BuildContext context, AsyncSnapshot<SaleOrder?> snapshot) {
-                if (snapshot.hasError) {
-                  return const Text(
-                    'There was an error.',
-                  );
-                } else if (snapshot.hasData) {
-                  order = snapshot.data!;
-
-                  customerCode.text = order.accountCode;
-                  customerCodeFull.text = customer != null
-                      ? "${customer!.accountCode} - ${customer?.customerName}"
-                      : "120.00.00 - No Customer";
-                  userId.text =
-                      customerUser != null ? "${customerUser?.id}" : "0";
-
-                  userName.text = customerUser != null
-                      ? "#${customerUser?.id} - ${customerUser?.contactName}"
-                      : "#0 - No Contact";
-
-                  description.text = order.description;
-                  orderTypeId.text = order.orderTypeId.toString();
-                  orderTypeFull.text = order.orderTypeId != null
-                      ? "${order.orderTypeId} - $orderTypeName"
-                      : "1 - Sales Order";
-
-                  return SafeArea(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator()) // Show loading indicator
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Form(
+                  key: formKey,
+                  child: SafeArea(
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
@@ -472,7 +576,9 @@ class _OrderDetailState extends State<OrderDetail> {
                                   ),
                                   child: TextFormField(
                                     controller: description,
-                                    onChanged: (value) {},
+                                    onChanged: (value) {
+                                      description.text = value;
+                                    },
                                     keyboardType: TextInputType.multiline,
                                     maxLines: 6,
                                     decoration: InputDecoration(
@@ -537,16 +643,197 @@ class _OrderDetailState extends State<OrderDetail> {
                               ],
                             ),
                           ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Text(
+                                  "ORDER DOCUMENTS",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: <Widget>[
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.photo_camera,
+                                    color: Colors.blueAccent,
+                                    size: 30,
+                                  ), // İlk ikon
+                                  onPressed: _takePicture,
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.photo,
+                                    color: Colors.lightBlueAccent,
+                                    size: 30,
+                                  ), // İkinci ikon
+                                  onPressed: _selectPicture,
+                                ),
+                              ],
+                            ),
+                          ), // Kamera ve File İkonlar
+                          _storedImage?.path != null
+                              ? SizedBox(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: SizedBox(
+                                      child: _storedImage?.path.isNotEmpty ==
+                                              true
+                                          ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(10.0),
+                                              child: Image.file(
+                                                File(_storedImage?.path ??
+                                                    "assets/images/none.png"),
+                                                height: 200,
+                                              ),
+                                            )
+                                          : ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(10.0),
+                                              child: Image.asset(
+                                                  "assets/images/none.png")),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox(),
+                          SizedBox(
+                            child: ListView.builder(
+                              shrinkWrap: true, // Add this line
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: orderDocuments!.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final basketitemfile = orderDocuments?[index];
+                                return Dismissible(
+                                  key: UniqueKey(),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    color: Colors.red,
+                                    alignment: Alignment.centerRight,
+                                    padding: EdgeInsets.only(right: 20.0),
+                                    child:
+                                        Icon(Icons.delete, color: Colors.white),
+                                  ),
+                                  onDismissed: (direction) {
+                                    _showDeleteConfirmationDialogItem(
+                                        basketitemfile!);
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Center(
+                                      child: SizedBox(
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(10.0),
+                                          child: Image.file(
+                                            File(orderDocuments![index]
+                                                .pathName),
+                                            height: 200,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Text(
+                                  "ITEMS",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            child: ListView.separated(
+                              padding: const EdgeInsets.all(8),
+                              shrinkWrap: true, // Add this line
+                              physics:
+                                  const NeverScrollableScrollPhysics(), // Add this lin
+                              itemCount: orderRows?.length ?? 0,
+                              itemBuilder: (context, index) {
+                                final orderitem = orderRows?[index];
+                                SaleOrderDocument? foundItem =
+                                    orderDocuments?.firstWhereOrNull((item) =>
+                                        item.saleOrderUid ==
+                                        orderitem?.orderUid);
+                                return ListTile(
+                                    leading: Text(
+                                        '#${orderitem?.id.toString()}',
+                                        style: const TextStyle(fontSize: 16)),
+                                    title: Text(
+                                      orderitem!.qrCode,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
+                                    ),
+                                    subtitle: Row(
+                                      children: [
+                                        Text(orderitem.description),
+                                        const SizedBox(
+                                          width: 20,
+                                        ),
+                                        orderitem.description.isNotEmpty
+                                            ? const Icon(
+                                                Icons.speaker_notes_rounded,
+                                                size: 18,
+                                                color: Colors.grey,
+                                              )
+                                            : const Text(""),
+                                        const SizedBox(
+                                          width: 10,
+                                        ),
+                                        foundItem != null
+                                            ? const Icon(
+                                                Icons.insert_photo_outlined,
+                                                size: 20,
+                                                color: Colors.grey,
+                                              )
+                                            : const Text("")
+                                      ],
+                                    ),
+                                    trailing: Text(
+                                      orderitem.quantity.toString(),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18),
+                                    ),
+                                    tileColor: Colors.white54);
+                              },
+                              separatorBuilder: (context, index) {
+                                return Divider(
+                                  color: Colors.brown[50],
+                                  height: 3,
+                                );
+                              },
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  );
-                } else {
-                  return const Center(child: CircularProgressIndicator());
-                }
-              }),
-        ),
-      ),
+                  )),
+            ),
     );
   }
 
@@ -637,10 +924,15 @@ class _OrderDetailState extends State<OrderDetail> {
                             customerCode.text =
                                 _filteredCustomers![index].accountCode;
                             customerCodeFull.text =
-                                "${_filteredCustomers![index].accountCode} - ${_filteredCustomers![index].customerName}";
+                                "${_filteredCustomers![index].accountCode} - ${_filteredCustomers![index].customerName ?? "No Customer"}";
+
+                            order.accountCode =
+                                _filteredCustomers![index].accountCode;
+                            order.customerUserId = 0;
 
                             userId.text = '0';
                             userName.text = '#0 - No User';
+
                             Navigator.pop(context);
                           },
                         );
