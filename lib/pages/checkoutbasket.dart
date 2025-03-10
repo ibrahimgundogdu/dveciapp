@@ -437,6 +437,12 @@ class _CheckoutBasketState extends State<CheckoutBasket> {
                           borderSide: BorderSide.none,
                           borderRadius: BorderRadius.circular(10.0),
                         ),
+                        suffix: GestureDetector(
+                          onTap: () {
+                            _searchQuery = "";
+                          },
+                          child: const Icon(Icons.clear),
+                        ),
                       ),
                       onChanged: (value) {
                         setState(() {

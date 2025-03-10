@@ -4,9 +4,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:dveci_app/models/saleorderrow.dart';
-import 'package:dveci_app/pages/basketlist.dart';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
 import 'package:collection/collection.dart';
 import '../database/db_helper.dart';
 import '../models/customer.dart';
@@ -14,6 +14,7 @@ import '../models/customeruser.dart';
 import '../models/saleorder.dart';
 import '../models/saleorderdocument.dart';
 import '../models/saleordertype.dart';
+import '../repositories/apirepository.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/floating_button.dart';
@@ -28,6 +29,7 @@ class OrderDetail extends StatefulWidget {
 
 class _OrderDetailState extends State<OrderDetail> {
   final DbHelper _dbHelper = DbHelper.instance;
+  late Apirepository _repository;
 
   TextEditingController customerCode = TextEditingController();
   TextEditingController customerCodeFull = TextEditingController();
@@ -45,7 +47,7 @@ class _OrderDetailState extends State<OrderDetail> {
   late CustomerUser? customerUser;
   late String? orderTypeName;
   bool _isLoading = true;
-
+  bool _isSaveLoading = false;
   late List<SaleOrderRow>? orderRows = [];
   late List<SaleOrderDocument>? orderDocuments = [];
   late List<Customer>? customers = [];
@@ -61,7 +63,9 @@ class _OrderDetailState extends State<OrderDetail> {
 
   @override
   void initState() {
+    _repository = Apirepository();
     super.initState();
+
     _loadData();
 
     _loadCustomers();
@@ -228,6 +232,50 @@ class _OrderDetailState extends State<OrderDetail> {
     );
   }
 
+  Widget _buildButtonChild() {
+    if (_isSaveLoading) {
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 10),
+          Text('Sipariş Kaydediliyor...'),
+        ],
+      );
+    } else {
+      return const Text(
+        'SEND ORDER TO CLOUD',
+        style: TextStyle(fontWeight: FontWeight.w900),
+      );
+    }
+  }
+
+  Widget _buildIconChild() {
+    if (_isSaveLoading) {
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            strokeWidth: 1,
+            strokeAlign: 10,
+          ),
+          SizedBox(width: 10),
+          Icon(
+            Icons.sync_outlined,
+            color: Colors.black54,
+            size: 24,
+          ),
+        ],
+      );
+    } else {
+      return const Icon(
+        Icons.sync_outlined,
+        color: Colors.black54,
+        size: 24,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -249,16 +297,36 @@ class _OrderDetailState extends State<OrderDetail> {
         backgroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(
-              Icons.sync_outlined,
-              color: Colors.black54,
-              size: 24,
-            ),
-            onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-                return const BasketList();
-              }));
-            },
+            icon: _buildIconChild(),
+            onPressed: _isSaveLoading
+                ? null
+                : () async {
+                    setState(() {
+                      _isSaveLoading = true;
+                    });
+                    var message = await _repository.getAppOrder(widget.uid);
+                    setState(() {
+                      _isSaveLoading = false;
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(message), // Mesajı SnackBar'da göster
+                        duration: const Duration(
+                            seconds:
+                                3), // SnackBar'ın görünme süresi (isteğe bağlı)
+                        behavior: SnackBarBehavior
+                            .floating, // SnackBar'ın davranışını ayarla (isteğe bağlı)
+                      ),
+                    );
+
+                    Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (context) {
+                      return OrderDetail(
+                        uid: widget.uid,
+                      );
+                    }));
+                  },
           ),
         ],
       ),
@@ -596,50 +664,51 @@ class _OrderDetailState extends State<OrderDetail> {
                                   height: 16.0,
                                 ),
 
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                            foregroundColor: Theme.of(context)
-                                                .colorScheme
-                                                .onPrimary,
-                                            backgroundColor: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
-                                            padding: EdgeInsets.symmetric(
-                                                vertical: 10),
-                                            shape: StadiumBorder())
-                                        .copyWith(
-                                            elevation:
-                                                ButtonStyleButton.allOrNull(
-                                                    0.0)),
-                                    onPressed: () async {
-                                      final formIsValid =
-                                          formKey.currentState?.validate();
-                                      if (formIsValid == true) {
-                                        await _dbHelper.updateOrder(
-                                            widget.uid,
-                                            customerCode.text,
-                                            userId.text,
-                                            orderTypeId.text,
-                                            description.text);
+                                if (order.orderStatusId == 0)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                              foregroundColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .onPrimary,
+                                              backgroundColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
+                                              padding: EdgeInsets.symmetric(
+                                                  vertical: 10),
+                                              shape: StadiumBorder())
+                                          .copyWith(
+                                              elevation:
+                                                  ButtonStyleButton.allOrNull(
+                                                      0.0)),
+                                      onPressed: () async {
+                                        final formIsValid =
+                                            formKey.currentState?.validate();
+                                        if (formIsValid == true) {
+                                          await _dbHelper.updateOrder(
+                                              widget.uid,
+                                              customerCode.text,
+                                              userId.text,
+                                              orderTypeId.text,
+                                              description.text);
 
-                                        Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                                builder: (context) {
-                                          return OrderDetail(
-                                            uid: widget.uid,
-                                          );
-                                        }));
-                                      }
-                                    },
-                                    child: const Text(
-                                      'SAVE CHANGES',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w900),
+                                          Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                  builder: (context) {
+                                            return OrderDetail(
+                                              uid: widget.uid,
+                                            );
+                                          }));
+                                        }
+                                      },
+                                      child: const Text(
+                                        'SAVE CHANGES',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w900),
+                                      ),
                                     ),
-                                  ),
-                                ), //Button
+                                  ), //Button
                               ],
                             ),
                           ),
@@ -828,6 +897,65 @@ class _OrderDetailState extends State<OrderDetail> {
                                 );
                               },
                             ),
+                          ),
+
+                          const SizedBox(
+                            height: 16.0,
+                          ),
+                          if (order.orderStatusId == 0)
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                          foregroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary,
+                                          backgroundColor: Colors.blue.shade700,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 10),
+                                          shape: StadiumBorder())
+                                      .copyWith(
+                                          elevation:
+                                              ButtonStyleButton.allOrNull(0.0)),
+                                  onPressed: _isSaveLoading
+                                      ? null // Yükleme devam ederken butonu devre dışı bırak
+                                      : () async {
+                                          setState(() {
+                                            _isSaveLoading = true;
+                                          });
+                                          var message = await _repository
+                                              .sendAppOrder(widget.uid);
+                                          setState(() {
+                                            _isSaveLoading = false;
+                                          });
+
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(message),
+                                              duration:
+                                                  const Duration(seconds: 3),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                            ),
+                                          );
+
+                                          Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                  builder: (context) {
+                                            return OrderDetail(
+                                              uid: widget.uid,
+                                            );
+                                          }));
+                                        },
+                                  child: _buildButtonChild(),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(
+                            height: 40.0,
                           ),
                         ],
                       ),

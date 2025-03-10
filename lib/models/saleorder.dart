@@ -72,10 +72,30 @@ class SaleOrder {
     map["orderSyncDate"] = orderSyncDate?.millisecondsSinceEpoch;
     map["orderTypeId"] = orderTypeId;
     map["description"] = description;
+    map["orderStatusId"] = orderStatusId;
+    map["statusName"] = statusName;
+    map["netTotal"] = netTotal;
+    map["taxTotal"] = taxTotal;
+    map["grossTotal"] = grossTotal;
+    map["uid"] = uid;
+    map["recordEmployeeId"] = recordEmployeeId;
+    map["recordIp"] = recordIp;
+
+    return map;
+  }
+
+  Map<String, dynamic> toJson() {
+    var map = Map<String, dynamic>();
+
+    map["id"] = id;
     map["orderId"] = orderId;
-    map["orderId"] = orderId;
-    map["orderId"] = orderId;
-    map["orderId"] = orderId;
+    map["orderNumber"] = orderNumber;
+    map["accountCode"] = accountCode;
+    map["customerUserId"] = customerUserId;
+    map["saleEmployeeId"] = saleEmployeeId;
+    map["orderDate"] = orderDate?.toIso8601String();
+    map["orderSyncDate"] = orderSyncDate?.toIso8601String();
+    map["orderTypeId"] = orderTypeId;
     map["description"] = description;
     map["orderStatusId"] = orderStatusId;
     map["statusName"] = statusName;

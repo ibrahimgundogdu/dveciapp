@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 import '../models/basket.dart';
 import '../models/basketfile.dart';
 import '../models/dveciprefix.dart';
+import '../models/orderresponse.dart';
 import '../models/saleorderdocument.dart';
 import '../models/saleorderrow.dart';
 import '../models/userauthentication.dart';
@@ -401,8 +402,9 @@ class DbHelper {
     Database db = await instance.database;
 
     String sql =
-        "INSERT INTO CustomerUser (accountCode, contactName,positionName ,departmentName, phoneNumber, emailAddress, uid) VALUES(?, ?, ?, ?, ?, ?, ?)";
+        "INSERT INTO CustomerUser (id, accountCode, contactName,positionName ,departmentName, phoneNumber, emailAddress, uid) VALUES(?, ?, ?, ?, ?, ?, ?, ?)";
     return await db.rawInsert(sql, [
+      customerUser.id,
       customerUser.accountCode,
       customerUser.contactName,
       customerUser.positionName,
@@ -480,6 +482,30 @@ class DbHelper {
     }).toList();
 
     return list;
+  }
+
+  Future<int> getOrderCount() async {
+    Database? db = await instance.database;
+    List<Map<String, dynamic>> result =
+        await db.rawQuery("SELECT COUNT(*) FROM SaleOrder");
+    int count = Sqflite.firstIntValue(result) ?? 0;
+    return count;
+  }
+
+  Future<int> getBasketCount() async {
+    Database? db = await instance.database;
+    List<Map<String, dynamic>> result =
+        await db.rawQuery("SELECT COUNT(*) FROM Basket");
+    int count = Sqflite.firstIntValue(result) ?? 0;
+    return count;
+  }
+
+  Future<int> getCustomerCount() async {
+    Database? db = await instance.database;
+    List<Map<String, dynamic>> result =
+        await db.rawQuery("SELECT COUNT(*) FROM Customer");
+    int count = Sqflite.firstIntValue(result) ?? 0;
+    return count;
   }
 
   Future<SaleOrder?> getOrder(String uid) async {
@@ -631,7 +657,7 @@ class DbHelper {
             await db.rawInsert(sqlRow, [
               order.orderId,
               "${parts[0]}.${parts[1]}",
-              "${parts[0]}.${parts[1]}.${parts[2]}.${parts[3]}",
+              "${parts[0]}.${parts[1]}.${parts[2]}",
               item.qrCode,
               selectedColor.colorNumber,
               "${selectedColor.colorName} -${selectedColor.manufactureType}",
@@ -704,6 +730,33 @@ class DbHelper {
           orderTypeId,
           description,
           orderUid,
+        ]);
+      } catch (e) {
+        print("Error Updating Order: $e");
+      }
+    }
+  }
+
+  Future<void> updateOrderFromCloud(OrderResponse orderResponse) async {
+    Database? db = await instance.database;
+    DateTime now = DateTime.now();
+    var order = await getOrder(orderResponse.uid!);
+    if (order != null) {
+      try {
+        String sql =
+            "UPDATE SaleOrder SET orderId = ?, orderNumber = ?,  accountCode = ?, customerUserId = ?, saleEmployeeId = ?, orderTypeId = ?, description = ?, orderStatusId = ?, statusName = ?, orderSyncDate = ? WHERE uid = ?";
+        await db.rawUpdate(sql, [
+          orderResponse.orderId,
+          orderResponse.orderNumber,
+          orderResponse.accountCode,
+          orderResponse.customerUserId,
+          orderResponse.saleEmployeeId,
+          orderResponse.orderTypeId,
+          orderResponse.description,
+          orderResponse.orderStatusId,
+          orderResponse.statusName,
+          now.millisecondsSinceEpoch,
+          orderResponse.uid,
         ]);
       } catch (e) {
         print("Error Updating Order: $e");

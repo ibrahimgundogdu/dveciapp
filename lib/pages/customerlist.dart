@@ -92,11 +92,16 @@ class _CustomerListState extends State<CustomerList> {
                 },
                 controller: editingController,
                 decoration: InputDecoration(
-                    labelText: "Search",
-                    hintText: "Search",
                     prefixIcon: const Icon(Icons.search),
-                    border: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(20.0))),
+                    hintText: 'Search Customer',
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
                     suffix: GestureDetector(
                       onTap: () {
                         editingController.clear();

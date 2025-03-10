@@ -30,21 +30,6 @@ Widget bottomWidget(BuildContext context) {
           IconButton(
               onPressed: () {
                 Navigator.of(context).push<String>(MaterialPageRoute(
-                  builder: (context) => const OrderList(),
-                ));
-              },
-              icon: const Icon(
-                Icons.dataset_outlined,
-                size: 24,
-                semanticLabel: "Orders",
-                color: Color(0xFF854B34),
-              )),
-          const SizedBox(
-            width: 50,
-          ),
-          IconButton(
-              onPressed: () {
-                Navigator.of(context).push<String>(MaterialPageRoute(
                   builder: (context) => const CustomerList(),
                 ));
               },
@@ -53,6 +38,9 @@ Widget bottomWidget(BuildContext context) {
                 size: 24,
                 color: Color(0xFF854B34),
               )),
+          const SizedBox(
+            width: 50,
+          ),
           IconButton(
               onPressed: () {
                 Navigator.of(context).push<String>(MaterialPageRoute(
@@ -62,6 +50,18 @@ Widget bottomWidget(BuildContext context) {
               icon: const Icon(
                 Icons.shopping_bag_outlined,
                 size: 24,
+                color: Color(0xFF854B34),
+              )),
+          IconButton(
+              onPressed: () {
+                Navigator.of(context).push<String>(MaterialPageRoute(
+                  builder: (context) => const OrderList(),
+                ));
+              },
+              icon: const Icon(
+                Icons.dataset_outlined,
+                size: 24,
+                semanticLabel: "Orders",
                 color: Color(0xFF854B34),
               )),
         ],

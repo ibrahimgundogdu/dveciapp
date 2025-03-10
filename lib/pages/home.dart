@@ -10,7 +10,6 @@ import '../widgets/floating_button.dart';
 import 'basketlist.dart';
 import 'orderlist.dart';
 import 'customerlist.dart';
-import 'syncronize.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -23,11 +22,30 @@ class _HomeState extends State<Home> {
   //String? _token;
   UserAuthentication? _employee;
   final DbHelper _dbHelper = DbHelper.instance;
+  int orderCount = 0;
+  int basketCount = 0;
+  int customerCount = 0;
+  bool _isLoading = true;
 
   _HomeState() {
     getEmployee().then((value) => setState(() {
           _employee = value;
         }));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() async {
+      orderCount = await _dbHelper.getOrderCount();
+      basketCount = await _dbHelper.getBasketCount();
+      customerCount = await _dbHelper.getCustomerCount();
+      _isLoading = false;
+    });
   }
 
   @override
@@ -54,127 +72,165 @@ class _HomeState extends State<Home> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push<String>(MaterialPageRoute(
-                    builder: (context) => const CustomerList(),
-                  ));
-                },
-                style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(
-                        side: BorderSide(
-                            style: BorderStyle.solid,
-                            width: 6,
-                            color: Color(0xFFDCCEC8))),
-                    padding: const EdgeInsets.all(36),
-                    backgroundColor: const Color(0xFFB79C91)),
-                child: const Column(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator()) // Show loading indicator
+          : SafeArea(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.contacts_outlined,
-                      color: Colors.white,
-                      size: 30.0,
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push<String>(MaterialPageRoute(
+                          builder: (context) => const BasketList(),
+                        ));
+                      },
+                      style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                            side: const BorderSide(
+                              style: BorderStyle.none,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(20),
+                          backgroundColor: Colors.grey.shade100),
+                      child: Column(
+                        children: [
+                          Text(
+                            "${basketCount}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                color: Colors.black),
+                          ),
+                          const SizedBox(
+                            width: 100,
+                            height: 10,
+                          ),
+                          const Icon(
+                            Icons.shopping_bag_outlined,
+                            color: Colors.deepOrange,
+                            size: 30.0,
+                          ),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          const Text(
+                            "Basket Item",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.grey),
+                          )
+                        ],
+                      ),
                     ),
-                    Text("Customer")
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push<String>(MaterialPageRoute(
+                          builder: (context) => const OrderList(),
+                        ));
+                      },
+                      style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                            side: const BorderSide(
+                              style: BorderStyle.none,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(20),
+                          backgroundColor: Colors.grey.shade100),
+                      child: Column(
+                        children: [
+                          Text(
+                            "${orderCount}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                color: Colors.black),
+                          ),
+                          const SizedBox(
+                            width: 100,
+                            height: 10,
+                          ),
+                          const Icon(
+                            Icons.widgets_outlined,
+                            color: Colors.deepOrange,
+                            size: 30.0,
+                          ),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          const Text(
+                            "Orders",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.grey),
+                          )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push<String>(MaterialPageRoute(
+                          builder: (context) => const CustomerList(),
+                        ));
+                      },
+                      style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                            side: const BorderSide(
+                              style: BorderStyle.none,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(20),
+                          backgroundColor: Colors.grey.shade100),
+                      child: Column(
+                        children: [
+                          Text(
+                            "${customerCount}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                color: Colors.black),
+                          ),
+                          const SizedBox(
+                            width: 100,
+                            height: 10,
+                          ),
+                          const Icon(
+                            Icons.contacts_outlined,
+                            color: Colors.deepOrange,
+                            size: 30.0,
+                          ),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          const Text(
+                            "Customer",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.grey),
+                          )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 8,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(
-                height: 8,
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push<String>(MaterialPageRoute(
-                    builder: (context) => const BasketList(),
-                  ));
-                },
-                style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(
-                        side: BorderSide(
-                            style: BorderStyle.solid,
-                            width: 6,
-                            color: Color(0xFFDCCEC8))),
-                    padding: const EdgeInsets.all(36),
-                    backgroundColor: const Color(0xFFB79C91)),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.shopping_bag_outlined,
-                      color: Colors.white,
-                      size: 30.0,
-                    ),
-                    Text("Basket")
-                  ],
-                ),
-              ),
-              const SizedBox(
-                height: 8,
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push<String>(MaterialPageRoute(
-                    builder: (context) => const OrderList(),
-                  ));
-                },
-                style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(
-                        side: BorderSide(
-                            style: BorderStyle.solid,
-                            width: 6,
-                            color: Color(0xFFDCCEC8))),
-                    padding: const EdgeInsets.all(36),
-                    backgroundColor: const Color(0xFFB79C91)),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.widgets_outlined,
-                      color: Colors.white,
-                      size: 30.0,
-                    ),
-                    Text("Order List")
-                  ],
-                ),
-              ),
-              const SizedBox(
-                height: 8,
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push<String>(MaterialPageRoute(
-                    builder: (context) => const Syncronize(),
-                  ));
-                },
-                style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(
-                        side: BorderSide(
-                            style: BorderStyle.solid,
-                            width: 6,
-                            color: Color(0xFFDCCEC8))),
-                    padding: const EdgeInsets.all(36),
-                    backgroundColor: const Color(0xFFB79C91)),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.cloud_sync_outlined,
-                      color: Colors.white,
-                      size: 30.0,
-                    ),
-                    Text("Synronize")
-                  ],
-                ),
-              ),
-              const SizedBox(
-                height: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 

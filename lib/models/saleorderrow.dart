@@ -9,8 +9,8 @@ class SaleOrderRow {
   String itemSize;
   String itemPageNumber;
   String unit;
-  double? quantity = 1;
-  double? unitPrice = 0;
+  double? quantity = 1.0;
+  double? unitPrice = 0.0;
   double? total;
   double? taxRate;
   double? tax;
@@ -67,4 +67,60 @@ class SaleOrderRow {
             m['rowStatusId'],
             m['orderUid'],
             m['uid']);
+
+  Map<String, dynamic> toMap() {
+    var map = Map<String, dynamic>();
+
+    map["id"] = id;
+    map["orderId"] = orderId;
+    map["productCode"] = productCode;
+    map["itemCode"] = itemCode;
+    map["qrCode"] = qrCode;
+    map["itemColorNumber"] = itemColorNumber;
+    map["itemColorName"] = itemColorName;
+    map["itemSize"] = itemSize;
+    map["itemPageNumber"] = itemPageNumber;
+    map["unit"] = unit;
+    map["quantity"] = quantity;
+    map["unitPrice"] = unitPrice;
+    map["total"] = total;
+    map["taxRate"] = taxRate;
+    map["tax"] = tax;
+    map["amount"] = amount;
+    map["currency"] = currency;
+    map["description"] = description;
+    map["rowStatusId"] = rowStatusId;
+    map["orderUid"] = orderUid;
+    map["uid"] = uid;
+
+    return map;
+  }
+
+  Map<String, dynamic> toJson() {
+    var map = Map<String, dynamic>();
+
+    map["id"] = id;
+    map["orderId"] = orderId;
+    map["productCode"] = productCode;
+    map["itemCode"] = itemCode;
+    map["qrCode"] = qrCode;
+    map["itemColorNumber"] = itemColorNumber;
+    map["itemColorName"] = itemColorName;
+    map["itemSize"] = itemSize;
+    map["itemPageNumber"] = itemPageNumber;
+    map["unit"] = unit;
+    map["quantity"] = quantity;
+    map["unitPrice"] = unitPrice;
+    map["total"] = total;
+    map["taxRate"] = taxRate;
+    map["tax"] = tax;
+    map["amount"] = amount;
+    map["currency"] = currency;
+    map["description"] = description;
+    map["rowStatusId"] = rowStatusId;
+    map["orderUid"] = orderUid;
+    map["uid"] = uid;
+
+    return map;
+  }
 }
