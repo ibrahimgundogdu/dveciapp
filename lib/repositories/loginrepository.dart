@@ -6,7 +6,7 @@ import '../models/employeeresult.dart';
 import '../models/loginresult.dart';
 
 class LoginRepository {
-  Future<LoginResult?> GetToken(String email, String password) async {
+  Future<LoginResult?> getToken(String email, String password) async {
     var url = Uri.https('app.d-veci.net', '/api/Employee/GetUserToken',
         {'email': email, 'password': password});
 
@@ -18,7 +18,7 @@ class LoginRepository {
     return null;
   }
 
-  Future<EmployeeResult?> GetEmployee(String? token) async {
+  Future<EmployeeResult?> getEmployee(String? token) async {
     var url = Uri.https(
         'app.d-veci.net', '/api/Employee/CheckUserToken', {'token': token});
 
