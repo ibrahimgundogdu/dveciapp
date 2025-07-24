@@ -1,4 +1,4 @@
-import 'package:dveci_app/pages/home.dart';
+import '../pages/home.dart';
 import 'package:flutter/material.dart';
 
 import '../pages/customerlist.dart';
@@ -40,7 +40,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return Home();
+              return const Home();
             }));
           },
         ),
@@ -54,7 +54,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return OrderList();
+              return const OrderList();
             }));
           },
         ),
@@ -68,7 +68,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return CustomerList();
+              return const CustomerList();
             }));
           },
         ),
@@ -82,7 +82,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return Syncronize();
+              return const Syncronize();
             }));
           },
         ),
@@ -96,7 +96,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return DveciSizes();
+              return const DveciSizes();
             }));
           },
         ),
@@ -110,7 +110,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return DveciColors();
+              return const DveciColors();
             }));
           },
         ),
@@ -124,7 +124,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return DveciPrefixes();
+              return const DveciPrefixes();
             }));
           },
         ),
@@ -138,7 +138,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return LoginPage();
+              return const LoginPage();
             }));
           },
         ),

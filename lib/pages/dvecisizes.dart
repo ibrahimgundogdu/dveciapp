@@ -4,10 +4,9 @@ import '../database/db_helper.dart';
 import '../models/dvecisize.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class DveciSizes extends StatefulWidget {
-  const DveciSizes({Key? key}) : super(key: key);
+  const DveciSizes({super.key});
 
   @override
   State<DveciSizes> createState() => _DveciSizesState();
@@ -22,10 +21,7 @@ class _DveciSizesState extends State<DveciSizes> {
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: false,
         drawer: drawerMenu(context, "D-Veci"),
-        floatingActionButton: floatingButton(context),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.miniCenterDocked,
-        bottomNavigationBar: bottomWidget(context),
+        bottomNavigationBar: bottomWidget(context, 0),
         appBar: AppBar(
           title: const Text(
             "Actual Sizes",
@@ -45,7 +41,7 @@ class _DveciSizesState extends State<DveciSizes> {
               (BuildContext context, AsyncSnapshot<List<DveciSize>> snapshot) {
             if (snapshot.hasData) {
               return ListView.separated(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 itemCount: snapshot.data?.length ?? 0,
                 itemBuilder: (context, index) {
                   return _sizeInfo(snapshot.data![index]);

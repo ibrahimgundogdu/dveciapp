@@ -13,7 +13,7 @@ class Basket {
             DateTime.tryParse(m['recordDate']));
 
   Map<String, dynamic> toMap() {
-    var map = Map<String, dynamic>();
+    var map = <String, dynamic>{};
 
     map["id"] = id;
     map["qrCode"] = qrCode;

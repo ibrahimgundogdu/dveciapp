@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:dveci_app/models/customeruser.dart';
+import '../models/customeruser.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 

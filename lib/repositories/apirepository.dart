@@ -15,14 +15,14 @@ class Apirepository {
       'Content-Type': 'application/json',
     };
 
-    var _order = await dbHelper.getOrder(uid);
-    var _orderRows = await dbHelper.getOrderRows(uid);
-    var _orderDocuments = await dbHelper.getOrderDocuments(uid);
+    var order = await dbHelper.getOrder(uid);
+    var orderRows = await dbHelper.getOrderRows(uid);
+    var orderDocuments = await dbHelper.getOrderDocuments(uid);
 
     var body = jsonEncode({
-      'order': _order?.toJson(),
-      'orderRows': _orderRows.map((e) => e.toJson()).toList(),
-      'orderDocuments': _orderDocuments?.map((e) => e.toJson()).toList()
+      'order': order?.toJson(),
+      'orderRows': orderRows.map((e) => e.toJson()).toList(),
+      'orderDocuments': orderDocuments?.map((e) => e.toJson()).toList()
     });
 
     // var jsn = orderRequest.toJson();

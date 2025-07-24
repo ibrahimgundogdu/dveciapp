@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class DveciPrefixes extends StatefulWidget {
-  const DveciPrefixes({Key? key}) : super(key: key);
+  const DveciPrefixes({super.key});
 
   @override
   State<DveciPrefixes> createState() => _DveciPrefixesState();
@@ -15,16 +14,14 @@ class DveciPrefixes extends StatefulWidget {
 
 class _DveciPrefixesState extends State<DveciPrefixes> {
   final DbHelper _dbHelper = DbHelper.instance;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: false,
         drawer: drawerMenu(context, "D-Veci"),
-        floatingActionButton: floatingButton(context),
-        bottomNavigationBar: bottomWidget(context),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.miniCenterDocked,
+        bottomNavigationBar: bottomWidget(context, 0),
         appBar: AppBar(
           title: const Text(
             "Actual Prefixes",
@@ -44,7 +41,7 @@ class _DveciPrefixesState extends State<DveciPrefixes> {
               AsyncSnapshot<List<DveciPrefix>> snapshot) {
             if (snapshot.hasData) {
               return ListView.separated(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 itemCount: snapshot.data!.length,
                 itemBuilder: (context, index) {
                   return _prefixInfo(snapshot.data![index]);

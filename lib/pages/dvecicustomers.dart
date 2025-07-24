@@ -4,10 +4,9 @@ import '../database/db_helper.dart';
 import '../models/customer.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class DveciCustomers extends StatefulWidget {
-  const DveciCustomers({Key? key}) : super(key: key);
+  const DveciCustomers({super.key});
 
   @override
   State<DveciCustomers> createState() => _DveciCustomersState();
@@ -22,14 +21,11 @@ class _DveciCustomersState extends State<DveciCustomers> {
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       drawer: drawerMenu(context, "D-Veci"),
-      floatingActionButton: floatingButton(context),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.miniCenterDocked,
-      bottomNavigationBar: bottomWidget(context),
+      bottomNavigationBar: bottomWidget(context, 1),
       appBar: AppBar(
         title: const Text(
           "Actual Customers",
-          style: const TextStyle(
+          style: TextStyle(
               color: Color(0xFFB79C91),
               fontSize: 14,
               fontWeight: FontWeight.bold),

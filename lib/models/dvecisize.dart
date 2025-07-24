@@ -19,7 +19,7 @@ class DveciSize {
   }
 
   Map<String, dynamic> map() {
-    var map = Map<String, dynamic>();
+    var map = <String, dynamic>{};
 
     map['id'] = id;
     map['code'] = code;

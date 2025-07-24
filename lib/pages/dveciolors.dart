@@ -4,10 +4,9 @@ import '../database/db_helper.dart';
 import '../models/dvecicolor.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class DveciColors extends StatefulWidget {
-  const DveciColors({Key? key}) : super(key: key);
+  const DveciColors({super.key});
 
   @override
   State<DveciColors> createState() => _DveciColorsState();
@@ -22,10 +21,7 @@ class _DveciColorsState extends State<DveciColors> {
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: false,
         drawer: drawerMenu(context, "D-Veci"),
-        floatingActionButton: floatingButton(context),
-        bottomNavigationBar: bottomWidget(context),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.miniCenterDocked,
+        bottomNavigationBar: bottomWidget(context, 0),
         appBar: AppBar(
           title: const Text(
             "Actual Colors",
@@ -45,7 +41,7 @@ class _DveciColorsState extends State<DveciColors> {
               (BuildContext context, AsyncSnapshot<List<DveciColor>> snapshot) {
             if (snapshot.hasData) {
               return ListView.separated(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 itemCount: snapshot.data!.length,
                 itemBuilder: (context, index) {
                   return _colorInfo(snapshot.data![index]);

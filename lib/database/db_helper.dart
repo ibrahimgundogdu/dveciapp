@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io' show Directory;
 
-import 'package:dveci_app/models/customeruser.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../models/customeruser.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:path/path.dart' show join;
@@ -32,9 +34,11 @@ class DbHelper {
   static const _databaseVersion = 1;
 
   DbHelper._privateConstructor();
+
   static final DbHelper instance = DbHelper._privateConstructor();
 
   static Database? _database;
+
   Future<Database> get database async => _database ??= await _initDatabase();
 
   // this opens the database (and creates it if it doesn't exist)
@@ -50,7 +54,7 @@ class DbHelper {
     await db.execute(
         "CREATE TABLE Basket (id INTEGER PRIMARY KEY AUTOINCREMENT, qrCode NVARCHAR(50), description NVARCHAR(250), quantity INTEGER, recordDate INTEGER )");
     await db.execute(
-        "CREATE TABLE BasketFile (id INTEGER PRIMARY KEY AUTOINCREMENT, basketId INTEGER, imageFile NVARCHAR(250) )");
+        "CREATE TABLE BasketFile (id INTEGER PRIMARY KEY AUTOINCREMENT, basketId INTEGER, imageFile NVARCHAR(250), imageName NVARCHAR(50), mimetype NVARCHAR(50) )");
     await db.execute(
         "CREATE TABLE Color (id INTEGER PRIMARY KEY AUTOINCREMENT, colorNumber NVARCHAR(4),colorName NVARCHAR(50), manufactureType NVARCHAR(50))");
     await db.execute(
@@ -62,7 +66,7 @@ class DbHelper {
     await db.execute(
         "CREATE TABLE SaleOrder ( id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER, orderNumber NVARCHAR(20), accountCode NVARCHAR(20), customerUserId INTEGER, saleEmployeeId INTEGER, orderDate INTEGER, orderSyncDate INTEGER, orderTypeId INTEGER, description TEXT, orderStatusId INTEGER, statusName NVARCHAR(50), netTotal REAL, taxTotal REAL, grossTotal REAL, uid TEXT, recordEmployeeId INTEGER, recordIp NVARCHAR(20))");
     await db.execute(
-        "CREATE TABLE SaleOrderDocument (id INTEGER PRIMARY KEY AUTOINCREMENT,saleOrderUid TEXT, saleOrderRowUid TEXT,pathName NVARCHAR(250),documentName NVARCHAR(50))");
+        "CREATE TABLE SaleOrderDocument (id INTEGER PRIMARY KEY AUTOINCREMENT,saleOrderUid TEXT, saleOrderRowUid TEXT,pathName TEXT,documentName TEXT)");
     await db.execute(
         "CREATE TABLE SaleOrderRow ( id INTEGER PRIMARY KEY AUTOINCREMENT, orderId INTEGER, productCode NVARCHAR(40), itemCode NVARCHAR(50), qrCode NVARCHAR(50), itemColorNumber NVARCHAR(10), itemColorName NVARCHAR(150), itemSize NVARCHAR(50), itemPageNumber NVARCHAR(4), unit NVARCHAR(20), quantity REAL, unitPrice REAL, total REAL, taxRate REAL, tax REAL, amount REAL, currency NVARCHAR(4), description TEXT, rowStatusId INTEGER, orderUid TEXT, uid TEXT)");
     await db.execute(
@@ -147,7 +151,7 @@ class DbHelper {
 
     return List.generate(maps.length, (i) {
       return BasketFile(maps[i]['id'] as int, maps[i]['basketId'] as int,
-          maps[i]['imageFile']);
+          maps[i]['imageFile'], maps[i]['imageName'], maps[i]['mimetype']);
     });
   }
 
@@ -159,7 +163,7 @@ class DbHelper {
 
     return List.generate(maps.length, (i) {
       return BasketFile(maps[i]['id'] as int, maps[i]['basketId'] as int,
-          maps[i]['imageFile']);
+          maps[i]['imageFile'], maps[i]['imageName'], maps[i]['mimetype']);
     });
   }
 
@@ -170,9 +174,30 @@ class DbHelper {
     return await db.rawInsert(sql);
   }
 
+  Future<int> addBasketXFile(int basketId, XFile imageFile) async {
+    Database db = await instance.database;
+    String sql =
+        "INSERT INTO BasketFile (basketId,imageFile, imageName, mimetype) VALUES($basketId,'${imageFile.path}','${imageFile.name}','${imageFile.mimeType}');";
+    return await db.rawInsert(sql);
+  }
+
   Future<int> removeBasketFile(int id) async {
     Database db = await instance.database;
     return await db.delete("BasketFile", where: "id=?", whereArgs: [id]);
+  }
+
+  Future<int> removeBasketXFile(int basketId, XFile imageFile) async {
+    Database db = await instance.database;
+    return await db.delete("BasketFile",
+        where: "basketId=? AND imageFile=?",
+        whereArgs: [basketId, imageFile.path]);
+  }
+
+  Future<int> removeOrderXFile(String uid, XFile imageFile) async {
+    Database db = await instance.database;
+    return await db.delete("SaleOrderDocument",
+        where: "saleOrderUid=? AND pathName=?",
+        whereArgs: [uid, imageFile.path]);
   }
 
   Future<int> removeOrderFile(int id) async {
@@ -484,6 +509,21 @@ class DbHelper {
     return list;
   }
 
+  Future<List<SaleOrder>> getRecentOrders({int limit = 5}) async {
+    Database? db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      "SaleOrder",
+      orderBy: 'orderId DESC',
+      limit: limit,
+    );
+
+    if (maps.isNotEmpty) {
+      return maps.map((json) => SaleOrder.fromMap(json)).toList();
+    } else {
+      return [];
+    }
+  }
+
   Future<int> getOrderCount() async {
     Database? db = await instance.database;
     List<Map<String, dynamic>> result =
@@ -544,14 +584,22 @@ class DbHelper {
     Database? db = await instance.database;
 
     final List<Map<String, dynamic>> maps = await db.query("SaleOrderDocument",
-        where: "saleOrderUid=? AND saleOrderRowUid=?",
-        whereArgs: [uid, '-'],
+        where: "saleOrderUid=? AND saleOrderRowUid IS NULL",
+        whereArgs: [uid],
         orderBy: "id");
 
     return List.generate(maps.length, (i) {
       SaleOrderDocument? orderDocument = SaleOrderDocument.fromMap(maps[i]);
       return orderDocument;
     });
+  }
+
+  Future<SaleOrderType?> getSaleOrderTypeById(int id) async {
+    Database? db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query("SaleOrderType",
+        where: "id=?", whereArgs: [id], limit: 1);
+    SaleOrderType? orderType = SaleOrderType.fromMap(maps.first);
+    return orderType;
   }
 
   Future<int> addOrder(String orderUid, String customerCode, String userId,
@@ -562,10 +610,10 @@ class DbHelper {
 
     try {
       int orderId = 0;
-      var _orderId = await ServiceSharedPreferences.getSharedInt("orderId");
+      var orderId0 = await ServiceSharedPreferences.getSharedInt("orderId");
 
-      if (_orderId != null && _orderId > 0) {
-        orderId = _orderId + 1;
+      if (orderId0 != null && orderId0 > 0) {
+        orderId = orderId0 + 1;
       } else {
         orderId = orderId + 1;
       }
@@ -578,14 +626,14 @@ class DbHelper {
         userIdInt = int.parse(userId);
       } catch (e) {
         userIdInt = 0;
-        print("Error parsing userId: $e");
+        //print("Error parsing userId: $e");
       }
 
       try {
         orderTypeIdInt = int.parse(orderTypeId);
       } catch (e) {
         orderTypeIdInt = 1;
-        print("Error parsing orderTypeId: $e");
+        //print("Error parsing orderTypeId: $e");
       }
 
       var user = await getUserAuthenticated();
@@ -649,7 +697,7 @@ class DbHelper {
               pageNumber = int.parse(parts[4]);
             } catch (e) {
               pageNumber = 1;
-              print("Error parsing pageNumber: $e");
+              //print("Error parsing pageNumber: $e");
             }
 
             String sqlRow =
@@ -693,7 +741,7 @@ class DbHelper {
         await removeAllBasket();
       }
     } catch (e) {
-      print("Error Saving Order: $e");
+      //print("Error Saving Order: $e");
     }
     return 1;
   }
@@ -706,20 +754,12 @@ class DbHelper {
     if (order != null) {
       try {
         int userIdInt = 0;
-        int orderTypeIdInt = 1;
+        //int orderTypeIdInt = 1;
 
         try {
           userIdInt = int.parse(userId);
         } catch (e) {
           userIdInt = 0;
-          print("Error parsing userId: $e");
-        }
-
-        try {
-          orderTypeIdInt = int.parse(orderTypeId);
-        } catch (e) {
-          orderTypeIdInt = 1;
-          print("Error parsing orderTypeId: $e");
         }
 
         String sql =
@@ -732,7 +772,7 @@ class DbHelper {
           orderUid,
         ]);
       } catch (e) {
-        print("Error Updating Order: $e");
+        //print("Error Updating Order: $e");
       }
     }
   }
@@ -759,7 +799,7 @@ class DbHelper {
           orderResponse.uid,
         ]);
       } catch (e) {
-        print("Error Updating Order: $e");
+        //print("Error Updating Order: $e");
       }
     }
   }
@@ -769,6 +809,31 @@ class DbHelper {
     String sql =
         "INSERT INTO SaleOrderDocument (saleOrderUid, saleOrderRowUid, pathName, documentName) VALUES('$orderUid','-','$imageFile','-');";
     return await db.rawInsert(sql);
+  }
+
+  Future<int> addOrderDocFile(SaleOrderDocument file) async {
+    final Database db = await instance.database;
+    try {
+      return await db.insert(
+        "SaleOrderDocument",
+        file.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      return -1;
+    }
+  }
+
+  Future<int> addOrderXFile(SaleOrderDocument file) async {
+    final Database db = await instance.database;
+    try {
+      String sqlFile =
+          "INSERT INTO SaleOrderDocument (saleOrderUid, saleOrderRowUid, pathName, documentName) VALUES(?, ?, ?, ?)";
+      return await db.rawInsert(
+          sqlFile, [file.saleOrderUid, null, file.pathName, file.documentName]);
+    } catch (e) {
+      return -1;
+    }
   }
 
 //Authentication

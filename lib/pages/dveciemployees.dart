@@ -4,10 +4,9 @@ import '../database/db_helper.dart';
 import '../models/employee.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class DveciEmployees extends StatefulWidget {
-  const DveciEmployees({Key? key}) : super(key: key);
+  const DveciEmployees({super.key});
 
   @override
   State<DveciEmployees> createState() => _DveciEmployeesState();
@@ -22,14 +21,11 @@ class _DveciEmployeesState extends State<DveciEmployees> {
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       drawer: drawerMenu(context, "D-Veci"),
-      floatingActionButton: floatingButton(context),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.miniCenterDocked,
-      bottomNavigationBar: bottomWidget(context),
+      bottomNavigationBar: bottomWidget(context, 0),
       appBar: AppBar(
         title: const Text(
           "Actual Employees",
-          style: const TextStyle(
+          style: TextStyle(
               color: Color(0xFFB79C91),
               fontSize: 14,
               fontWeight: FontWeight.bold),

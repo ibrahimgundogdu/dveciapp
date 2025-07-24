@@ -6,12 +6,22 @@ import 'package:flutter/material.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
-  ]).then((_) {
-    runApp(const DveciApp());
-  });
+  ]);
+
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.white,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
+
+  runApp(const DveciApp());
 }
 
 class DveciApp extends StatelessWidget {
@@ -22,36 +32,44 @@ class DveciApp extends StatelessWidget {
     return token;
   }
 
-  void hideSystemUI() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky,
-        overlays: []);
-  }
+  // void hideSystemUI() {
+  //   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky,overlays: []);
+  // }
 
   @override
   Widget build(BuildContext context) {
-    hideSystemUI();
+    //hideSystemUI();
     return FutureBuilder<String?>(
         future: getToken(),
         builder: (context, AsyncSnapshot<String?> snapshot) {
-          if (snapshot.hasData) {
-            return MaterialApp(
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const MaterialApp(
               debugShowCheckedModeBanner: false,
-              title: 'Dveci Order',
-              theme: ThemeData(
-                primarySwatch: Colors.brown,
+              home: Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
               ),
-              home: const Home(),
-            );
-          } else {
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              title: 'Dveci Order',
-              theme: ThemeData(
-                primarySwatch: Colors.brown,
-              ),
-              home: const LoginPage(),
             );
           }
+          else  {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'Dveci Order',
+              theme: ThemeData(
+                  primarySwatch: Colors.blue,
+                  colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+                  useMaterial3: true,
+                  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                    backgroundColor: Colors.transparent,
+                  )
+
+              ),
+              home: snapshot.hasData ? const Home() :  const LoginPage(),
+            );
+          }
+
+
         });
   }
 }

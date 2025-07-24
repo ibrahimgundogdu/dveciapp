@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:dveci_app/models/basketfile.dart';
+import '../models/basketfile.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../models/basket.dart';
 import '../models/dvecicolor.dart';
@@ -14,11 +13,11 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 import 'basketlist.dart';
 
 class DetailBasketItem extends StatefulWidget {
   final int itemId;
+
   const DetailBasketItem({super.key, required this.itemId});
 
   @override
@@ -29,6 +28,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
   final DbHelper _dbHelper = DbHelper.instance;
   Basket? basketItem;
   ItemModel? itemModel;
+  final ImagePicker _picker = ImagePicker();
+  final List<XFile> _pickedFiles = [];
 
   String itemCode = "X.000000.00.00.000";
   String _appBarTitle = "";
@@ -50,27 +51,69 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
   Future<void> initBasketItem() async {
     basketItem = await _dbHelper.getBasketItem(widget.itemId);
     basketItemFiles = await _dbHelper.getBasketFiles(widget.itemId);
-    prefixItems = await _dbHelper.getPrefixes();
-    colorItems = await _dbHelper.getColors();
-    sizeItems = await _dbHelper.getSizes();
 
-    itemCode = basketItem!.qrCode;
-    itemModel = HelperService().GetItemModel(basketItem!.qrCode);
-    description.text = basketItem!.description;
-    quantity.text = basketItem!.quantity.toString();
-    serialNumber.text = itemModel!.prefix;
-    mainCode.text = itemModel!.code;
-    sizeCode.text = itemModel!.size;
-    colorCode.text = itemModel!.color;
-    pageNumber.text = itemModel!.pageNumber;
-    _appBarTitle = '#${basketItem!.id}   -  ${basketItem!.qrCode}';
-    setState(() {});
+    if (basketItemFiles != null) {
+      for (var basketFile in basketItemFiles!) {
+        if (basketFile.imageFile.isNotEmpty) {
+          try {
+            final xfile = XFile(basketFile.imageFile);
+            if (!_pickedFiles.any((file) => file.path == xfile.path)) {
+              _pickedFiles.add(xfile);
+            }
+          } catch (e) {
+            // Hata durumunda yapılacak işlemler
+          }
+        }
+      }
+    }
+
+    if (basketItem != null) {
+      itemCode = basketItem!.qrCode;
+      itemModel = HelperService().getItemModel(basketItem!.qrCode);
+      description.text = basketItem!.description;
+      quantity.text = basketItem!.quantity.toString();
+      serialNumber.text = itemModel!.prefix;
+      mainCode.text = itemModel!.code;
+      sizeCode.text = itemModel!.size;
+      colorCode.text = itemModel!.color;
+      pageNumber.text = itemModel!.pageNumber;
+      _appBarTitle = '#${basketItem!.id}   -  ${basketItem!.qrCode}';
+    } else {
+      _appBarTitle = 'Öğe Bulunamadı';
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    initBasketItem();
+
+    _loadInitialDataAndBasketItem();
+  }
+
+  Future<void> _loadInitialDataAndBasketItem() async {
+    await Future.wait([
+      _loadPrefixes(),
+      _loadColors(),
+      _loadSizes(),
+    ]);
+
+    await initBasketItem();
+  }
+
+  Future<void> _loadPrefixes() async {
+    prefixItems = await _dbHelper.getPrefixes();
+  }
+
+  Future<void> _loadColors() async {
+    colorItems = await _dbHelper.getColors();
+  }
+
+  Future<void> _loadSizes() async {
+    sizeItems = await _dbHelper.getSizes();
   }
 
   void setPrefix(String prefix) {
@@ -99,7 +142,6 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
 
   void setSize(String sizecode) {
     final splitted = itemCode.split('.');
-
     if (splitted.length == 5) {
       setState(() {
         itemCode =
@@ -133,92 +175,121 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     }
   }
 
-  File? _storedImage;
-  final picker = ImagePicker();
+  // File? _storedImage;
+  // final picker = ImagePicker();
 
-  Future<void> _takePicture() async {
-    final imageFile = await picker.pickImage(
-      source: ImageSource.camera,
-    );
-    setState(() {
-      _storedImage = File(imageFile?.path ?? "");
-    });
-    await _saveImageToDocuments();
-  }
+  // Future<void> _takePicture() async {
+  //   final imageFile = await picker.pickImage(
+  //     source: ImageSource.camera,
+  //   );
+  //   setState(() {
+  //     _storedImage = File(imageFile?.path ?? "");
+  //   });
+  //   await _saveImageToDocuments();
+  // }
+  //
+  // Future<void> _selectPicture() async {
+  //   final imageFile = await picker.pickImage(
+  //     source: ImageSource.gallery,
+  //   );
+  //   setState(() {
+  //     _storedImage = File(imageFile?.path ?? "");
+  //   });
+  //   await _saveImageToDocuments();
+  // }
 
-  Future<void> _selectPicture() async {
-    final imageFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
-    setState(() {
-      _storedImage = File(imageFile?.path ?? "");
-    });
-    await _saveImageToDocuments();
-  }
-
-  Future<void> _saveImageToDocuments() async {
-    if (_storedImage == null) {
-      return;
-    }
-
+  Future<void> _saveImageToDocuments(XFile imageFile) async {
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedImage = File('${appDir.path}/$fileName');
-      await _storedImage!.copy(savedImage.path);
-
-      await _dbHelper.addBasketFile(widget.itemId, savedImage.path);
+      await _dbHelper.addBasketXFile(widget.itemId, imageFile);
       basketItemFiles = await _dbHelper.getBasketFiles(widget.itemId);
-    } catch (e) {}
+    } catch (e) {
+      // Hata durumunda yapılacak işlemler
+    }
   }
 
-  Future<void> _showDeleteConfirmationDialogItem(BasketFile item) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false, // Kullanıcı butonlara tıklamalı
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Confirmation'),
-          content: const SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text('Do you want to delete item?'),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {});
-              },
-            ),
-            TextButton(
-              child: const Text('Delete'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Diyaloğu kapat
-                removeBasketFileItem(item); // Silme işlemini gerçekleştir
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // Future<void> _showDeleteConfirmationDialogItem(XFile item) async {
+  //   return showDialog<void>(
+  //     context: context,
+  //     barrierDismissible: false, // Kullanıcı butonlara tıklamalı
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: const Text('Delete Confirmation'),
+  //         content: const SingleChildScrollView(
+  //           child: ListBody(
+  //             children: <Widget>[
+  //               Text('Do you want to delete item?'),
+  //             ],
+  //           ),
+  //         ),
+  //         actions: <Widget>[
+  //           TextButton(
+  //             child: const Text('Cancel'),
+  //             onPressed: () {
+  //               Navigator.of(context).pop();
+  //               setState(() {});
+  //             },
+  //           ),
+  //           TextButton(
+  //             child: const Text('Delete'),
+  //             onPressed: () {
+  //               Navigator.of(context).pop(); // Diyaloğu kapat
+  //               removeBasketFileItem(item); // Silme işlemini gerçekleştir
+  //             },
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
-  Future removeBasketFileItem(BasketFile item) async {
-    await _dbHelper.removeBasketFile(item.id);
+  Future removeBasketXFileItem(XFile item) async {
+    await _dbHelper.removeBasketXFile(widget.itemId, item);
+    if (!mounted) return;
 
     setState(() {
-      basketItemFiles?.remove(item);
+      _pickedFiles.removeWhere((file) => file.path == item.path);
     });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Item deleted!'),
+        duration: Duration(seconds: 1),
+        content: Text('Item removed!'),
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? imageFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 100,
+      );
+
+      if (imageFile != null) {
+        setState(() {
+          if (!_pickedFiles.any((file) => file.path == imageFile.path)) {
+            _pickedFiles.add(imageFile);
+          }
+        });
+
+        _saveImageToDocuments(imageFile);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('The file could not be selected: $e')),
+        );
+      }
+    }
+  }
+
+  void _removeFile(XFile fileToRemove) async {
+    await removeBasketXFileItem(fileToRemove);
+
+    setState(() {
+      _pickedFiles.removeWhere((file) => file.path == fileToRemove.path);
+    });
   }
 
   @override
@@ -231,10 +302,7 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: false,
         drawer: drawerMenu(context, "D-Veci"),
-        floatingActionButton: floatingButton(context),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.miniCenterDocked,
-        bottomNavigationBar: bottomWidget(context),
+        bottomNavigationBar: bottomWidget(context, 3),
         appBar: AppBar(
           elevation: 0,
           centerTitle: true,
@@ -282,19 +350,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("SERIAL",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF1B5E20),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("SERIAL",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF1B5E20),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 50,
                                             child: TextFormField(
                                               controller: serialNumber,
@@ -336,7 +402,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                             ),
@@ -360,19 +427,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("MAIN CODE",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF6E7B89),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("MAIN CODE",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF6E7B89),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 90,
                                             child: TextFormField(
                                               controller: mainCode,
@@ -406,7 +471,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                               validator: (value) {
@@ -438,19 +504,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("SIZE",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.red,
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("SIZE",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.red,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 60,
                                             child: TextFormField(
                                               controller: sizeCode,
@@ -485,7 +549,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                               validator: (value) {
@@ -517,19 +582,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("COLOR",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF7B1FA2),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("COLOR",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF7B1FA2),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 50,
                                             child: TextFormField(
                                               controller: colorCode,
@@ -564,7 +627,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                               validator: (value) {
@@ -596,19 +660,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("PAGE",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF6E7B89),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("PAGE",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF6E7B89),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 60,
                                             child: TextFormField(
                                               controller: pageNumber,
@@ -671,44 +733,42 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       height: 16.0,
                                     ),
 
-                                    Container(
-                                      child: TextFormField(
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: const Color(0xFFF4F5F7),
-                                          //hintText: "Quantity",
-                                          label: const Text(
-                                            "Quantity",
-                                            style: TextStyle(
-                                                color: Color(0XFFC0C7D1)),
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderSide: BorderSide.none,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
+                                    TextFormField(
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: const Color(0xFFF4F5F7),
+                                        //hintText: "Quantity",
+                                        label: const Text(
+                                          "Quantity",
+                                          style: TextStyle(
+                                              color: Color(0XFFC0C7D1)),
                                         ),
-                                        textAlign: TextAlign.right,
-                                        textAlignVertical:
-                                            TextAlignVertical.center,
-                                        keyboardType: TextInputType.number,
-                                        controller: quantity,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                        border: OutlineInputBorder(
+                                          borderSide: BorderSide.none,
+                                          borderRadius:
+                                              BorderRadius.circular(8.0),
                                         ),
-                                        validator: (value) {
-                                          if (value != null) {
-                                            if (value.isEmpty) {
-                                              return 'Quantity';
-                                            }
-                                          }
-                                          return null;
-                                        },
-                                        onChanged: (value) {
-                                          quantity.text = value;
-                                        },
                                       ),
+                                      textAlign: TextAlign.right,
+                                      textAlignVertical:
+                                          TextAlignVertical.center,
+                                      keyboardType: TextInputType.number,
+                                      controller: quantity,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      validator: (value) {
+                                        if (value != null) {
+                                          if (value.isEmpty) {
+                                            return 'Quantity';
+                                          }
+                                        }
+                                        return null;
+                                      },
+                                      onChanged: (value) {
+                                        quantity.text = value;
+                                      },
                                     ),
 
                                     const SizedBox(
@@ -719,7 +779,7 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       controller: description,
                                       onChanged: (value) {},
                                       keyboardType: TextInputType.multiline,
-                                      maxLines: 6,
+                                      maxLines: 5,
                                       decoration: InputDecoration(
                                         filled: true,
                                         fillColor: const Color(0xFFF4F5F7),
@@ -739,7 +799,12 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       height: 16.0,
                                     ),
 
+                                    _buildFileAttachmentSection(),
+                                    const SizedBox(
+                                      height: 16.0,
+                                    ),
                                     SizedBox(
+                                      height: 50,
                                       width: double.infinity,
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
@@ -748,12 +813,11 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                         .colorScheme
                                                         .onPrimary,
                                                 backgroundColor:
-                                                    Theme.of(context)
-                                                        .colorScheme
-                                                        .secondary,
-                                                padding: EdgeInsets.symmetric(
-                                                    vertical: 10),
-                                                shape: StadiumBorder())
+                                                    Colors.deepOrange,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 10),
+                                                shape: const StadiumBorder())
                                             .copyWith(
                                                 elevation:
                                                     ButtonStyleButton.allOrNull(
@@ -762,21 +826,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                           final formIsValid =
                                               formKey.currentState?.validate();
                                           if (formIsValid == true) {
-                                            int _quantity =
+                                            int itemQuantity =
                                                 int.parse((quantity.text));
 
-                                            //var imagePath = await _saveImageToDocuments();
-
                                             basketItem!.qrCode = itemCode;
-                                            basketItem!.quantity = _quantity;
+                                            basketItem!.quantity = itemQuantity;
                                             basketItem!.description =
                                                 description.text;
                                             basketItem!.recordDate =
                                                 DateTime.now();
 
                                             updateBasket(basketItem!);
-
-                                            if (_storedImage != null) {}
 
                                             Navigator.of(context).push(
                                                 MaterialPageRoute(
@@ -786,102 +846,6 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                           }
                                         },
                                         child: const Text('SAVE CHANGES'),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height: 80,
-                                      width: double.infinity,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment
-                                            .spaceEvenly, // İkonları eşit aralıklarla hizalar
-                                        children: <Widget>[
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.photo_camera,
-                                              color: Colors.blueAccent,
-                                              size: 30,
-                                            ), // İlk ikon
-                                            onPressed: _takePicture,
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.photo,
-                                              color: Colors.lightBlueAccent,
-                                              size: 30,
-                                            ), // İkinci ikon
-                                            onPressed: _selectPicture,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    _storedImage?.path != null
-                                        ? SizedBox(
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              child: SizedBox(
-                                                child: _storedImage
-                                                            ?.path.isNotEmpty ==
-                                                        true
-                                                    ? ClipRRect(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(10.0),
-                                                        child: Image.file(File(
-                                                            _storedImage
-                                                                    ?.path ??
-                                                                "assets/images/none.png")),
-                                                      )
-                                                    : ClipRRect(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(10.0),
-                                                        child: Image.asset(
-                                                            "assets/images/none.png")),
-                                              ),
-                                            ),
-                                          )
-                                        : const SizedBox(),
-                                    SizedBox(
-                                      height: 600,
-                                      child: ListView.builder(
-                                        itemCount: basketItemFiles!.length,
-                                        itemBuilder:
-                                            (BuildContext context, int index) {
-                                          final basketitemfile =
-                                              basketItemFiles?[index];
-                                          return Dismissible(
-                                            key: UniqueKey(),
-                                            direction:
-                                                DismissDirection.endToStart,
-                                            background: Container(
-                                              color: Colors.red,
-                                              alignment: Alignment.centerRight,
-                                              padding:
-                                                  EdgeInsets.only(right: 20.0),
-                                              child: Icon(Icons.delete,
-                                                  color: Colors.white),
-                                            ),
-                                            onDismissed: (direction) {
-                                              _showDeleteConfirmationDialogItem(
-                                                  basketitemfile!);
-                                            },
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              child: SizedBox(
-                                                child: ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          10.0),
-                                                  child: Image.file(File(
-                                                      basketItemFiles![index]
-                                                          .imageFile)),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
                                       ),
                                     ),
                                   ],
@@ -902,58 +866,168 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     await _dbHelper.updateBasket(item);
   }
 
+  Widget _buildFileAttachmentSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_pickedFiles.isNotEmpty)
+          Container(
+            height: 110,
+            margin: const EdgeInsets.only(bottom: 10, top: 0),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300)),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _pickedFiles.length,
+              itemBuilder: (context, index) {
+                final file = _pickedFiles[index];
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.grey.shade400, width: 0.5)),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.file(
+                            File(file.path),
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                    width: 90,
+                                    height: 90,
+                                    color: Colors.grey[200],
+                                    child: Icon(Icons.broken_image_outlined,
+                                        color: Colors.grey[400])),
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _removeFile(file),
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 18),
+                        ),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.camera_alt_outlined, size: 20),
+                label: const Text("Kamera"),
+                onPressed: () => _pickImage(ImageSource.camera),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).primaryColor,
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.7)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.photo_library_outlined, size: 20),
+                label: const Text("Galeri"),
+                onPressed: () => _pickImage(ImageSource.gallery),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.deepOrange,
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   void _showPrefixBottomSheet(BuildContext context) {
     showModalBottomSheet(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      isScrollControlled: true,
       context: context,
       builder: (BuildContext context) {
-        return Container(
-          child: Column(children: [
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Select Code Prefix',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700]),
-              ),
+        return Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Select Code Prefix',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700]),
             ),
-            Expanded(
-              child: ListView.separated(
-                itemCount: prefixItems?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    tileColor: Colors.transparent,
-                    title: Text(
-                      prefixItems![index].prefix,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight:
-                              serialNumber.text == prefixItems![index].prefix
-                                  ? FontWeight.w900
-                                  : FontWeight.normal,
-                          color: serialNumber.text == prefixItems![index].prefix
-                              ? Colors.green[700]
-                              : Colors.black),
-                    ),
-                    onTap: () {
-                      serialNumber.text = prefixItems![index].prefix;
-                      setPrefix(serialNumber.text);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return Divider(
-                    color: Colors.grey[200],
-                    thickness: 1,
-                    height: 1,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: prefixItems?.length ?? 0,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  tileColor: Colors.transparent,
+                  title: Text(
+                    prefixItems![index].prefix,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight:
+                            serialNumber.text == prefixItems![index].prefix
+                                ? FontWeight.w900
+                                : FontWeight.normal,
+                        color: serialNumber.text == prefixItems![index].prefix
+                            ? Colors.green[700]
+                            : Colors.black),
+                  ),
+                  onTap: () {
+                    serialNumber.text = prefixItems![index].prefix;
+                    setPrefix(serialNumber.text);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey[200],
+                  thickness: 1,
+                  height: 1,
+                );
+              },
             ),
-          ]),
-        );
+          ),
+        ]);
       },
     );
   }
@@ -962,52 +1036,48 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return Container(
-          child: Column(children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Select Size Number',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red),
-              ),
+        return Column(children: [
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Select Size Number',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
             ),
-            Expanded(
-              child: ListView.separated(
-                itemCount: sizeItems?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    tileColor: Colors.transparent,
-                    leading: Text(
-                      '#${'00${sizeItems![index].id}'.substring(((sizeItems![index].id.toString()).length + 2) - 3)}',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    title: Text(sizeItems![index].code),
-                    onTap: () {
-                      if (sizeItems![index].id <= 9) {
-                        sizeCode.text = '0${sizeItems![index].id}';
-                      } else {
-                        sizeCode.text = '${sizeItems![index].id}';
-                      }
-                      setSize(sizeCode.text);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return Divider(
-                    color: Colors.grey[200],
-                    thickness: 1,
-                    height: 1,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: sizeItems?.length ?? 0,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  tileColor: Colors.transparent,
+                  leading: Text(
+                    '#${'00${sizeItems![index].id}'.substring(((sizeItems![index].id.toString()).length + 2) - 3)}',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  title: Text(sizeItems![index].code),
+                  onTap: () {
+                    if (sizeItems![index].id <= 9) {
+                      sizeCode.text = '0${sizeItems![index].id}';
+                    } else {
+                      sizeCode.text = '${sizeItems![index].id}';
+                    }
+                    setSize(sizeCode.text);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey[200],
+                  thickness: 1,
+                  height: 1,
+                );
+              },
             ),
-          ]),
-        );
+          ),
+        ]);
       },
     );
   }
@@ -1016,49 +1086,47 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return Container(
-          child: Column(children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Select Color',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple),
-              ),
+        return Column(children: [
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Select Color',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple),
             ),
-            Expanded(
-              child: ListView.separated(
-                itemCount: colorItems?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    tileColor: Colors.transparent,
-                    leading: Text(
-                      colorItems![index].colorNumber!,
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    title: Text(colorItems![index].colorName!),
-                    onTap: () {
-                      colorCode.text = colorItems![index].colorNumber!;
-                      setColor(colorCode.text);
-                      Navigator.pop(context);
-                    },
-                    trailing: Text(colorItems![index].manufactureType!),
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return Divider(
-                    color: Colors.grey[200],
-                    thickness: 1,
-                    height: 1,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: colorItems?.length ?? 0,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  tileColor: Colors.transparent,
+                  leading: Text(
+                    colorItems![index].colorNumber!,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  title: Text(colorItems![index].colorName!),
+                  onTap: () {
+                    colorCode.text = colorItems![index].colorNumber!;
+                    setColor(colorCode.text);
+                    Navigator.pop(context);
+                  },
+                  trailing: Text(colorItems![index].manufactureType!),
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey[200],
+                  thickness: 1,
+                  height: 1,
+                );
+              },
             ),
-          ]),
-        );
+          ),
+        ]);
       },
     );
   }

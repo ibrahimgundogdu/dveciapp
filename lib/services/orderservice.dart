@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:dveci_app/models/basketfile.dart';
+import '../models/basketfile.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -15,10 +15,10 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class DetailBasketItem extends StatefulWidget {
   final int itemId;
+
   const DetailBasketItem({super.key, required this.itemId});
 
   @override
@@ -55,7 +55,7 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     sizeItems = await _dbHelper.getSizes();
 
     itemCode = basketItem!.qrCode;
-    itemModel = HelperService().GetItemModel(basketItem!.qrCode);
+    itemModel = HelperService().getItemModel(basketItem!.qrCode);
     description.text = basketItem!.description;
     quantity.text = basketItem!.quantity.toString();
     serialNumber.text = itemModel!.prefix;
@@ -169,7 +169,9 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
 
       await _dbHelper.addBasketFile(widget.itemId, savedImage.path);
       basketItemFiles = await _dbHelper.getBasketFiles(widget.itemId);
-    } catch (e) {}
+    } catch (e) {
+      //
+    }
   }
 
   Future<void> _showDeleteConfirmationDialogItem(BasketFile item) async {
@@ -210,15 +212,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
   Future removeBasketFileItem(BasketFile item) async {
     await _dbHelper.removeBasketFile(item.id);
 
-    setState(() {
-      basketItemFiles?.remove(item);
-    });
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Item deleted!'),
         behavior: SnackBarBehavior.floating,
       ),
     );
+
+    setState(() {
+      basketItemFiles?.remove(item);
+    });
   }
 
   @override
@@ -231,10 +235,7 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
         backgroundColor: Colors.white,
         resizeToAvoidBottomInset: false,
         drawer: drawerMenu(context, "D-Veci"),
-        floatingActionButton: floatingButton(context),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.miniCenterDocked,
-        bottomNavigationBar: bottomWidget(context),
+        bottomNavigationBar: bottomWidget(context, 4),
         appBar: AppBar(
           elevation: 0,
           centerTitle: true,
@@ -282,19 +283,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("SERIAL",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF1B5E20),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("SERIAL",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF1B5E20),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 50,
                                             child: TextFormField(
                                               controller: serialNumber,
@@ -336,7 +335,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                             ),
@@ -360,19 +360,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("MAIN CODE",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF6E7B89),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("MAIN CODE",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF6E7B89),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 90,
                                             child: TextFormField(
                                               controller: mainCode,
@@ -406,7 +404,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                               validator: (value) {
@@ -438,19 +437,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("SIZE",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.red,
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("SIZE",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.red,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 60,
                                             child: TextFormField(
                                               controller: sizeCode,
@@ -485,7 +482,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                               validator: (value) {
@@ -517,19 +515,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("COLOR",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF7B1FA2),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("COLOR",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF7B1FA2),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 50,
                                             child: TextFormField(
                                               controller: colorCode,
@@ -564,7 +560,8 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                             8.0),
                                                   ),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(
+                                                      const EdgeInsets
+                                                          .symmetric(
                                                           horizontal: 1,
                                                           vertical: 12)),
                                               validator: (value) {
@@ -596,19 +593,17 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       ),
                                       child: Column(
                                         children: [
-                                          Container(
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
-                                              child: Text("PAGE",
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0XFF6E7B89),
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ),
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.0),
+                                            child: Text("PAGE",
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0XFF6E7B89),
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
-                                          Container(
+                                          SizedBox(
                                             width: 60,
                                             child: TextFormField(
                                               controller: pageNumber,
@@ -671,44 +666,42 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       height: 16.0,
                                     ),
 
-                                    Container(
-                                      child: TextFormField(
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: const Color(0xFFF4F5F7),
-                                          //hintText: "Quantity",
-                                          label: const Text(
-                                            "Quantity",
-                                            style: TextStyle(
-                                                color: Color(0XFFC0C7D1)),
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderSide: BorderSide.none,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
+                                    TextFormField(
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: const Color(0xFFF4F5F7),
+                                        //hintText: "Quantity",
+                                        label: const Text(
+                                          "Quantity",
+                                          style: TextStyle(
+                                              color: Color(0XFFC0C7D1)),
                                         ),
-                                        textAlign: TextAlign.right,
-                                        textAlignVertical:
-                                            TextAlignVertical.center,
-                                        keyboardType: TextInputType.number,
-                                        controller: quantity,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                        border: OutlineInputBorder(
+                                          borderSide: BorderSide.none,
+                                          borderRadius:
+                                              BorderRadius.circular(8.0),
                                         ),
-                                        validator: (value) {
-                                          if (value != null) {
-                                            if (value.isEmpty) {
-                                              return 'Quantity';
-                                            }
-                                          }
-                                          return null;
-                                        },
-                                        onChanged: (value) {
-                                          quantity.text = value;
-                                        },
                                       ),
+                                      textAlign: TextAlign.right,
+                                      textAlignVertical:
+                                          TextAlignVertical.center,
+                                      keyboardType: TextInputType.number,
+                                      controller: quantity,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      validator: (value) {
+                                        if (value != null) {
+                                          if (value.isEmpty) {
+                                            return 'Quantity';
+                                          }
+                                        }
+                                        return null;
+                                      },
+                                      onChanged: (value) {
+                                        quantity.text = value;
+                                      },
                                     ),
 
                                     const SizedBox(
@@ -751,9 +744,10 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                                     Theme.of(context)
                                                         .colorScheme
                                                         .secondary,
-                                                padding: EdgeInsets.symmetric(
-                                                    vertical: 10),
-                                                shape: StadiumBorder())
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 10),
+                                                shape: const StadiumBorder())
                                             .copyWith(
                                                 elevation:
                                                     ButtonStyleButton.allOrNull(
@@ -762,13 +756,14 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                           final formIsValid =
                                               formKey.currentState?.validate();
                                           if (formIsValid == true) {
-                                            int _quantity =
+                                            int basketquantity =
                                                 int.parse((quantity.text));
 
                                             //var imagePath = await _saveImageToDocuments();
 
                                             basketItem!.qrCode = itemCode;
-                                            basketItem!.quantity = _quantity;
+                                            basketItem!.quantity =
+                                                basketquantity;
                                             basketItem!.description =
                                                 description.text;
                                             basketItem!.recordDate =
@@ -792,8 +787,9 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                       height: 80,
                                       width: double.infinity,
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment
-                                            .spaceEvenly, // İkonları eşit aralıklarla hizalar
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        // İkonları eşit aralıklarla hizalar
                                         children: <Widget>[
                                           IconButton(
                                             icon: const Icon(
@@ -857,9 +853,9 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
                                             background: Container(
                                               color: Colors.red,
                                               alignment: Alignment.centerRight,
-                                              padding:
-                                                  EdgeInsets.only(right: 20.0),
-                                              child: Icon(Icons.delete,
+                                              padding: const EdgeInsets.only(
+                                                  right: 20.0),
+                                              child: const Icon(Icons.delete,
                                                   color: Colors.white),
                                             ),
                                             onDismissed: (direction) {
@@ -906,54 +902,52 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return Container(
-          child: Column(children: [
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Select Code Prefix',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700]),
-              ),
+        return Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Select Code Prefix',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700]),
             ),
-            Expanded(
-              child: ListView.separated(
-                itemCount: prefixItems?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    tileColor: Colors.transparent,
-                    title: Text(
-                      prefixItems![index].prefix,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight:
-                              serialNumber.text == prefixItems![index].prefix
-                                  ? FontWeight.w900
-                                  : FontWeight.normal,
-                          color: serialNumber.text == prefixItems![index].prefix
-                              ? Colors.green[700]
-                              : Colors.black),
-                    ),
-                    onTap: () {
-                      serialNumber.text = prefixItems![index].prefix;
-                      setPrefix(serialNumber.text);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return Divider(
-                    color: Colors.grey[200],
-                    thickness: 1,
-                    height: 1,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: prefixItems?.length ?? 0,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  tileColor: Colors.transparent,
+                  title: Text(
+                    prefixItems![index].prefix,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight:
+                            serialNumber.text == prefixItems![index].prefix
+                                ? FontWeight.w900
+                                : FontWeight.normal,
+                        color: serialNumber.text == prefixItems![index].prefix
+                            ? Colors.green[700]
+                            : Colors.black),
+                  ),
+                  onTap: () {
+                    serialNumber.text = prefixItems![index].prefix;
+                    setPrefix(serialNumber.text);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey[200],
+                  thickness: 1,
+                  height: 1,
+                );
+              },
             ),
-          ]),
-        );
+          ),
+        ]);
       },
     );
   }
@@ -962,52 +956,48 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return Container(
-          child: Column(children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Select Size Number',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red),
-              ),
+        return Column(children: [
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Select Size Number',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
             ),
-            Expanded(
-              child: ListView.separated(
-                itemCount: sizeItems?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    tileColor: Colors.transparent,
-                    leading: Text(
-                      '#${'00${sizeItems![index].id}'.substring(((sizeItems![index].id.toString()).length + 2) - 3)}',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    title: Text(sizeItems![index].code),
-                    onTap: () {
-                      if (sizeItems![index].id <= 9) {
-                        sizeCode.text = '0${sizeItems![index].id}';
-                      } else {
-                        sizeCode.text = '${sizeItems![index].id}';
-                      }
-                      setSize(sizeCode.text);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return Divider(
-                    color: Colors.grey[200],
-                    thickness: 1,
-                    height: 1,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: sizeItems?.length ?? 0,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  tileColor: Colors.transparent,
+                  leading: Text(
+                    '#${'00${sizeItems![index].id}'.substring(((sizeItems![index].id.toString()).length + 2) - 3)}',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  title: Text(sizeItems![index].code),
+                  onTap: () {
+                    if (sizeItems![index].id <= 9) {
+                      sizeCode.text = '0${sizeItems![index].id}';
+                    } else {
+                      sizeCode.text = '${sizeItems![index].id}';
+                    }
+                    setSize(sizeCode.text);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey[200],
+                  thickness: 1,
+                  height: 1,
+                );
+              },
             ),
-          ]),
-        );
+          ),
+        ]);
       },
     );
   }
@@ -1016,49 +1006,47 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return Container(
-          child: Column(children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Select Color',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple),
-              ),
+        return Column(children: [
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Select Color',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple),
             ),
-            Expanded(
-              child: ListView.separated(
-                itemCount: colorItems?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    tileColor: Colors.transparent,
-                    leading: Text(
-                      colorItems![index].colorNumber!,
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    title: Text(colorItems![index].colorName!),
-                    onTap: () {
-                      colorCode.text = colorItems![index].colorNumber!;
-                      setColor(colorCode.text);
-                      Navigator.pop(context);
-                    },
-                    trailing: Text(colorItems![index].manufactureType!),
-                  );
-                },
-                separatorBuilder: (context, index) {
-                  return Divider(
-                    color: Colors.grey[200],
-                    thickness: 1,
-                    height: 1,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: colorItems?.length ?? 0,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  tileColor: Colors.transparent,
+                  leading: Text(
+                    colorItems![index].colorNumber!,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  title: Text(colorItems![index].colorName!),
+                  onTap: () {
+                    colorCode.text = colorItems![index].colorNumber!;
+                    setColor(colorCode.text);
+                    Navigator.pop(context);
+                  },
+                  trailing: Text(colorItems![index].manufactureType!),
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider(
+                  color: Colors.grey[200],
+                  thickness: 1,
+                  height: 1,
+                );
+              },
             ),
-          ]),
-        );
+          ),
+        ]);
       },
     );
   }

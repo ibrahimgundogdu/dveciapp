@@ -1,13 +1,12 @@
 import 'dart:io';
 
+import 'package:dveci_app/pages/order_edit.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
-import 'package:dveci_app/models/saleorderrow.dart';
-
+import '../models/saleorderrow.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-import 'package:collection/collection.dart';
 import '../database/db_helper.dart';
 import '../models/customer.dart';
 import '../models/customeruser.dart';
@@ -17,10 +16,10 @@ import '../models/saleordertype.dart';
 import '../repositories/apirepository.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class OrderDetail extends StatefulWidget {
   final String uid;
+
   const OrderDetail({super.key, required this.uid});
 
   @override
@@ -31,1202 +30,664 @@ class _OrderDetailState extends State<OrderDetail> {
   final DbHelper _dbHelper = DbHelper.instance;
   late Apirepository _repository;
 
-  TextEditingController customerCode = TextEditingController();
-  TextEditingController customerCodeFull = TextEditingController();
+  late Future<Map<String, dynamic>> _detailDataFuture;
+  SaleOrder? _order;
+  Customer? _customer;
+  CustomerUser? _customerUser;
+  SaleOrderType? _saleOrderType;
 
-  TextEditingController userId = TextEditingController();
-  TextEditingController userName = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  List<SaleOrderRow> _orderRows = [];
+  List<SaleOrderDocument> _orderDocuments = [];
+  final List<XFile> pickedFiles = [];
 
-  TextEditingController orderTypeId = TextEditingController();
-  TextEditingController orderTypeFull = TextEditingController();
-
-  TextEditingController description = TextEditingController();
-
-  late SaleOrder order;
-  late Customer? customer;
-  late CustomerUser? customerUser;
-  late String? orderTypeName;
-  bool _isLoading = true;
-  bool _isSaveLoading = false;
-  late List<SaleOrderRow>? orderRows = [];
-  late List<SaleOrderDocument>? orderDocuments = [];
-  late List<Customer>? customers = [];
-  late List<Customer>? _filteredCustomers = [];
-  late List<CustomerUser>? customerUsers = [];
-  late List<CustomerUser>? filteredCustomerUsers = [];
-
-  late List<SaleOrderType>? orderTypes = [];
-
-  String _searchQuery = '';
-
-  final formKey = GlobalKey<FormState>();
+  bool _isSyncing = false;
 
   @override
   void initState() {
-    _repository = Apirepository();
     super.initState();
-
-    _loadData();
-
-    _loadCustomers();
-    _loadCustomerUsers();
-    _loadOrderRows();
-    _loadOrderTypes();
+    _repository = Apirepository();
+    _detailDataFuture = _loadAllDetails();
   }
 
-  Future<void> _loadData() async {
+  Future<Map<String, dynamic>> _loadAllDetails() async {
     try {
-      order = (await _dbHelper.getOrder(widget.uid))!; // Fetch the order
-      customer = await _dbHelper.getCustomer(order.accountCode);
-      customerUser = await _dbHelper.getCustomerUser(order.customerUserId);
-      orderTypeName = await _dbHelper.getOrderTypeName(order.orderTypeId!);
+      final order = await _dbHelper.getOrder(widget.uid);
+      if (order == null) {
+        throw Exception("Order not found.");
+      }
 
-      // ... load other data ...
-      await _loadCustomers();
-      await _loadCustomerUsers();
-      await _loadOrderRows();
-      await _loadOrderDocuments();
-      await _loadOrderTypes();
+      final customer = await _dbHelper.getCustomer(order.accountCode);
+      final customerUser =
+          await _dbHelper.getCustomerUser(order.customerUserId);
+      final saleOrderType =
+          await _dbHelper.getSaleOrderTypeById(order.orderTypeId!);
+      final orderRows = await _dbHelper.getOrderRows(widget.uid);
+      final orderDocuments = await _dbHelper.getOrderDocuments(widget.uid);
 
-      // Update the UI after data is loaded
       setState(() {
-        _isLoading = false; // Set loading to false
-        customerCode.text = order.accountCode;
-        customerCodeFull.text = customer != null
-            ? "${customer!.accountCode} - ${customer?.customerName}"
-            : "120.00.00 - No Customer";
-        userId.text = customerUser != null ? "${customerUser?.id}" : "0";
-
-        userName.text = customerUser != null
-            ? "#${customerUser?.id} - ${customerUser?.contactName}"
-            : "#0 - No Contact";
-
-        description.text = order.description;
-        orderTypeId.text = order.orderTypeId.toString();
-        orderTypeFull.text = order.orderTypeId != null
-            ? "${order.orderTypeId} - $orderTypeName"
-            : "1 - Sales Order";
+        _order = order;
+        _customer = customer;
+        _customerUser = customerUser;
+        _saleOrderType = saleOrderType;
+        _orderRows = orderRows;
+        _orderDocuments = orderDocuments!;
       });
+
+      if (orderDocuments != null) {
+        for (var orderFile in orderDocuments) {
+          if (orderFile.pathName != null) {
+            try {
+              final xfile = XFile(orderFile.pathName!);
+              if (!pickedFiles.any((file) => file.path == xfile.path)) {
+                pickedFiles.add(xfile);
+              }
+            } catch (e) {
+              // Hata durumunda yapılacak işlemler
+            }
+          }
+        }
+      }
+
+      return {
+        'order': order,
+        'customer': customer,
+        'customerUser': customerUser,
+        'saleOrderType': saleOrderType,
+        'orderRows': orderRows,
+        'orderDocuments': orderDocuments,
+      };
     } catch (e) {
-      // Handle errors here (e.g., show an error message)
-      print("Error loading data: $e");
-      // You might want to set _isLoading to false here as well,
-      // or show an error state in the UI.
+      return Future.error(e.toString());
     }
   }
 
-  Future<void> _loadCustomers() async {
-    customers = await _dbHelper.getCustomers();
-    _filteredCustomers = customers;
-  }
-
-  Future<List<CustomerUser>?> _loadCustomerUsers() async {
-    customerUsers = await _dbHelper.getCustomerUsers();
-    return customerUsers;
-  }
-
-  Future<void> _loadOrderRows() async {
-    orderRows = await _dbHelper.getOrderRows(widget.uid);
-  }
-
-  Future<void> _loadOrderDocuments() async {
-    orderDocuments = await _dbHelper.getOrderDocuments(widget.uid);
-  }
-
-  Future<void> _loadOrderTypes() async {
-    orderTypes = await _dbHelper.getSaleOrderType();
-  }
-
-  Future<void> _filterCustomerUsers() async {
-    filteredCustomerUsers = customerUsers
-        ?.where((user) => user.accountCode == customerCode.text)
-        .toList();
-    //setState(() {});
-  }
-
-  File? _storedImage;
-  final picker = ImagePicker();
-
-  Future<void> _takePicture() async {
-    final imageFile = await picker.pickImage(
-      source: ImageSource.camera,
-    );
+  Future<void> _refreshDetails() async {
     setState(() {
-      _storedImage = File(imageFile?.path ?? "");
+      _detailDataFuture = _loadAllDetails();
     });
-    await _saveImageToDocuments();
+    await _detailDataFuture;
   }
 
-  Future<void> _selectPicture() async {
-    final imageFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+  Future<void> _sendToCloud() async {
+    if (_isSyncing) return;
     setState(() {
-      _storedImage = File(imageFile?.path ?? "");
+      _isSyncing = true;
     });
-    await _saveImageToDocuments();
-  }
-
-  Future<void> _saveImageToDocuments() async {
-    if (_storedImage == null) {
-      return;
-    }
 
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final fileName = 'oimage_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedImage = File('${appDir.path}/$fileName');
-      await _storedImage!.copy(savedImage.path);
-
-      await _dbHelper.addOrderFile(widget.uid, savedImage.path);
-      orderDocuments = await _dbHelper.getOrderDocuments(widget.uid);
-    } catch (e) {}
-  }
-
-  Future<void> _showDeleteConfirmationDialogItem(SaleOrderDocument item) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Confirmation'),
-          content: const SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text('Do you want to delete item?'),
-              ],
-            ),
+      var message = await _repository.sendAppOrder(widget.uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {});
-              },
-            ),
-            TextButton(
-              child: const Text('Delete'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Diyaloğu kapat
-                removeOrderFileItem(item); // Silme işlemini gerçekleştir
-              },
-            ),
-          ],
         );
-      },
-    );
+      }
+      _refreshDetails();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Synchronization error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
   }
 
-  Future removeOrderFileItem(SaleOrderDocument item) async {
-    await _dbHelper.removeOrderFile(item.id);
+  Future<void> _sendToEdit() async {
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) {
+      return OrderEditPage(orderUid: widget.uid);
+    }));
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? imageFile =
+          await _picker.pickImage(source: source, imageQuality: 85);
+      if (imageFile != null) {
+        setState(() {
+          if (!pickedFiles.any((file) => file.path == imageFile.path) &&
+              !_orderDocuments
+                  .any((doc) => doc.documentName == imageFile.name)) {
+            pickedFiles.add(imageFile);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text(
+                      'Bu dosya zaten ekli veya aynı isimde mevcut bir dosya var.')),
+            );
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Dosya seçilemedi: $e')));
+      }
+    }
+  }
+
+  Future removeBasketXFileItem(XFile item) async {
+    await _dbHelper.removeOrderXFile(widget.uid, item);
+    if (!mounted) return;
 
     setState(() {
-      orderDocuments?.remove(item);
+      pickedFiles.removeWhere((file) => file.path == item.path);
     });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Item deleted!'),
+        duration: Duration(seconds: 1),
+        content: Text('Item removed!'),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  Widget _buildButtonChild() {
-    if (_isSaveLoading) {
-      return const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(width: 10),
-          Text('Sipariş Kaydediliyor...'),
-        ],
-      );
-    } else {
-      return const Text(
-        'SEND ORDER TO CLOUD',
-        style: TextStyle(fontWeight: FontWeight.w900),
-      );
-    }
-  }
+  void _removeFile(XFile fileToRemove) async {
+    await removeBasketXFileItem(fileToRemove);
 
-  Widget _buildIconChild() {
-    if (_isSaveLoading) {
-      return const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            strokeWidth: 1,
-            strokeAlign: 10,
-          ),
-          SizedBox(width: 10),
-          Icon(
-            Icons.sync_outlined,
-            color: Colors.black54,
-            size: 24,
-          ),
-        ],
-      );
-    } else {
-      return const Icon(
-        Icons.sync_outlined,
-        color: Colors.black54,
-        size: 24,
-      );
-    }
+    setState(() {
+      pickedFiles.removeWhere((file) => file.path == fileToRemove.path);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: false,
       drawer: drawerMenu(context, "D-Veci"),
-      floatingActionButton: floatingButton(context),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.miniCenterDocked,
-      bottomNavigationBar: bottomWidget(context),
+      bottomNavigationBar: bottomWidget(context, 4),
       appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        title: const Text("ORDER DETAIL",
-            style: TextStyle(
-                color: Color(0xFFB79C91),
-                fontSize: 14,
-                fontWeight: FontWeight.bold)),
+        title: Text(
+          _order?.orderNumber ?? "ORDER DETAILS",
+          style: const TextStyle(
+              color: Color(0xFFB79C91),
+              fontSize: 16,
+              fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
+        centerTitle: true,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: Color(0xFFB79C91)),
         actions: [
+          // Eğer düzenleme modu varsa, bir kaydet butonu eklenebilir
+          // if (_isEditMode)
+          //   IconButton(
+          //     icon: Icon(Icons.save_outlined, color: Color(0xFFB79C91)),
+          //     onPressed: _updateOrderDetails,
+          //     tooltip: 'Değişiklikleri Kaydet',
+          //   ),
           IconButton(
-            icon: _buildIconChild(),
-            onPressed: _isSaveLoading
-                ? null
-                : () async {
-                    setState(() {
-                      _isSaveLoading = true;
-                    });
-                    var message = await _repository.getAppOrder(widget.uid);
-                    setState(() {
-                      _isSaveLoading = false;
-                    });
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(message), // Mesajı SnackBar'da göster
-                        duration: const Duration(
-                            seconds:
-                                3), // SnackBar'ın görünme süresi (isteğe bağlı)
-                        behavior: SnackBarBehavior
-                            .floating, // SnackBar'ın davranışını ayarla (isteğe bağlı)
-                      ),
-                    );
-
-                    Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (context) {
-                      return OrderDetail(
-                        uid: widget.uid,
-                      );
-                    }));
-                  },
+            icon: _isSyncing
+                ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.blue[700]))
+                : Icon(Icons.cloud_sync_outlined,
+                    color: Colors.blue[700], size: 28),
+            onPressed: _isSyncing ? null : _sendToCloud,
+            tooltip: 'SEND ORDER',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFFB79C91)),
+            onPressed: _refreshDetails,
+            tooltip: 'REFRESH',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator()) // Show loading indicator
-          : Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Form(
-                  key: formKey,
-                  child: SafeArea(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          ListTile(
-                            leading: const SizedBox(
-                              width: 100,
-                              child: Text(
-                                'ORDER NUMBER:',
-                                textAlign: TextAlign.start,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              order.orderNumber,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          ListTile(
-                            leading: const SizedBox(
-                              width: 100,
-                              child: Text(
-                                'ORDER DATE:',
-                                textAlign: TextAlign.start,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              order.orderDate.toString(),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          ListTile(
-                            leading: const SizedBox(
-                              width: 100,
-                              child: Text(
-                                'ORDER SYNC DATE:',
-                                textAlign: TextAlign.start,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              order.orderDate == order.orderSyncDate
-                                  ? ""
-                                  : order.orderSyncDate.toString(),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          ListTile(
-                            leading: const SizedBox(
-                              width: 100,
-                              child: Text(
-                                'ORDER TYPE:',
-                                textAlign: TextAlign.start,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              orderTypeName!,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          ListTile(
-                            leading: const SizedBox(
-                              width: 100,
-                              child: Text(
-                                'ORDER STATUS:',
-                                textAlign: TextAlign.start,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              order.statusName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.transparent,
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 8.0),
-                                        child: Text(
-                                          "COSTUMER",
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0XFF1B5E20),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    TextFormField(
-                                      controller: customerCodeFull,
-                                      readOnly: true,
-                                      onTap: () {
-                                        _showCustomerBottomSheet(context);
-                                      },
-                                      textAlign: TextAlign.start,
-                                      validator: (value) {
-                                        if (value != null) {
-                                          if (value.isEmpty) {
-                                            return 'Customer Code Required';
-                                          }
-                                        }
-                                        return null;
-                                      },
-                                      decoration: InputDecoration(
-                                        isDense: true,
-                                        filled: true,
-                                        counterText: '',
-                                        fillColor: Color(0xFFF4F5F7),
-                                        alignLabelWithHint: true,
-                                        hintText: "120.00.00",
-                                        hintStyle: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0XFFC0C7D1)),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 1, vertical: 12),
-                                        border: OutlineInputBorder(
-                                          borderSide: BorderSide.none,
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.transparent,
-                                ),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      child: const Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 8.0),
-                                          child: Text("CUSTOMER CONTACT",
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Color(0XFF1B5E20),
-                                                  fontWeight: FontWeight.bold)),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      child: TextFormField(
-                                        controller: userName,
-                                        readOnly: true,
-                                        onTap: () {
-                                          _showUserBottomSheet(context);
-                                        },
-                                        textAlign: TextAlign.start,
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          filled: true,
-                                          fillColor: Color(0xFFF4F5F7),
-                                          alignLabelWithHint: true,
-                                          hintText: "#0",
-                                          hintStyle: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0XFFC0C7D1)),
-                                          contentPadding: EdgeInsets.symmetric(
-                                              horizontal: 1, vertical: 12),
-                                          border: OutlineInputBorder(
-                                            borderSide: BorderSide.none,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (value != null) {
-                                            if (value.isEmpty) {
-                                              userId.text = "0";
-                                              return null;
-                                            }
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                )),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.transparent,
-                                ),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      child: const Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 8.0),
-                                          child: Text("ORDER TYPE",
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Color(0XFF1B5E20),
-                                                  fontWeight: FontWeight.bold)),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      child: TextFormField(
-                                        controller: orderTypeFull,
-                                        readOnly: true,
-                                        onTap: () {
-                                          _showOrderTypeBottomSheet(context);
-                                        },
-                                        textAlign: TextAlign.start,
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          filled: true,
-                                          fillColor: Color(0xFFF4F5F7),
-                                          alignLabelWithHint: true,
-                                          hintText: "1",
-                                          hintStyle: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0XFFC0C7D1)),
-                                          contentPadding: EdgeInsets.symmetric(
-                                              horizontal: 1, vertical: 12),
-                                          border: OutlineInputBorder(
-                                            borderSide: BorderSide.none,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (value != null) {
-                                            if (value.isEmpty) {
-                                              userId.text = "0";
-                                              return null;
-                                            }
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                )),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                const Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(vertical: 8.0),
-                                    child: Text("DESCRIPTION",
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0XFF1B5E20),
-                                            fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(30),
-                                    color: Color(0XFFF4F5F7),
-                                  ),
-                                  child: TextFormField(
-                                    controller: description,
-                                    onChanged: (value) {
-                                      description.text = value;
-                                    },
-                                    keyboardType: TextInputType.multiline,
-                                    maxLines: 6,
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: const Color(0xFFF4F5F7),
-                                      border: OutlineInputBorder(
-                                        borderSide: BorderSide.none,
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                    ),
-                                  ),
-                                ), //TextArea
-                                const SizedBox(
-                                  height: 16.0,
-                                ),
-
-                                if (order.orderStatusId == 0)
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                              foregroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimary,
-                                              backgroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary,
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 10),
-                                              shape: StadiumBorder())
-                                          .copyWith(
-                                              elevation:
-                                                  ButtonStyleButton.allOrNull(
-                                                      0.0)),
-                                      onPressed: () async {
-                                        final formIsValid =
-                                            formKey.currentState?.validate();
-                                        if (formIsValid == true) {
-                                          await _dbHelper.updateOrder(
-                                              widget.uid,
-                                              customerCode.text,
-                                              userId.text,
-                                              orderTypeId.text,
-                                              description.text);
-
-                                          Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                  builder: (context) {
-                                            return OrderDetail(
-                                              uid: widget.uid,
-                                            );
-                                          }));
-                                        }
-                                      },
-                                      child: const Text(
-                                        'SAVE CHANGES',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w900),
-                                      ),
-                                    ),
-                                  ), //Button
-                              ],
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Align(
-                              alignment: Alignment.center,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text(
-                                  "ORDER DOCUMENTS",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: double.infinity,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: <Widget>[
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.photo_camera,
-                                    color: Colors.blueAccent,
-                                    size: 30,
-                                  ), // İlk ikon
-                                  onPressed: _takePicture,
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.photo,
-                                    color: Colors.lightBlueAccent,
-                                    size: 30,
-                                  ), // İkinci ikon
-                                  onPressed: _selectPicture,
-                                ),
-                              ],
-                            ),
-                          ), // Kamera ve File İkonlar
-                          _storedImage?.path != null
-                              ? SizedBox(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: SizedBox(
-                                      child: _storedImage?.path.isNotEmpty ==
-                                              true
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10.0),
-                                              child: Image.file(
-                                                File(_storedImage?.path ??
-                                                    "assets/images/none.png"),
-                                                height: 200,
-                                              ),
-                                            )
-                                          : ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10.0),
-                                              child: Image.asset(
-                                                  "assets/images/none.png")),
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox(),
-                          SizedBox(
-                            child: ListView.builder(
-                              shrinkWrap: true, // Add this line
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: orderDocuments!.length,
-                              itemBuilder: (BuildContext context, int index) {
-                                final basketitemfile = orderDocuments?[index];
-                                return Dismissible(
-                                  key: UniqueKey(),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    color: Colors.red,
-                                    alignment: Alignment.centerRight,
-                                    padding: EdgeInsets.only(right: 20.0),
-                                    child:
-                                        Icon(Icons.delete, color: Colors.white),
-                                  ),
-                                  onDismissed: (direction) {
-                                    _showDeleteConfirmationDialogItem(
-                                        basketitemfile!);
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Center(
-                                      child: SizedBox(
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(10.0),
-                                          child: Image.file(
-                                            File(orderDocuments![index]
-                                                .pathName),
-                                            height: 200,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Align(
-                              alignment: Alignment.center,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text(
-                                  "ITEMS",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            child: ListView.separated(
-                              padding: const EdgeInsets.all(8),
-                              shrinkWrap: true, // Add this line
-                              physics:
-                                  const NeverScrollableScrollPhysics(), // Add this lin
-                              itemCount: orderRows?.length ?? 0,
-                              itemBuilder: (context, index) {
-                                final orderitem = orderRows?[index];
-                                SaleOrderDocument? foundItem =
-                                    orderDocuments?.firstWhereOrNull((item) =>
-                                        item.saleOrderUid ==
-                                        orderitem?.orderUid);
-                                return ListTile(
-                                    leading: Text(
-                                        '#${orderitem?.id.toString()}',
-                                        style: const TextStyle(fontSize: 16)),
-                                    title: Text(
-                                      orderitem!.qrCode,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16),
-                                    ),
-                                    subtitle: Row(
-                                      children: [
-                                        Text(orderitem.description),
-                                        const SizedBox(
-                                          width: 20,
-                                        ),
-                                        orderitem.description.isNotEmpty
-                                            ? const Icon(
-                                                Icons.speaker_notes_rounded,
-                                                size: 18,
-                                                color: Colors.grey,
-                                              )
-                                            : const Text(""),
-                                        const SizedBox(
-                                          width: 10,
-                                        ),
-                                        foundItem != null
-                                            ? const Icon(
-                                                Icons.insert_photo_outlined,
-                                                size: 20,
-                                                color: Colors.grey,
-                                              )
-                                            : const Text("")
-                                      ],
-                                    ),
-                                    trailing: Text(
-                                      orderitem.quantity.toString(),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18),
-                                    ),
-                                    tileColor: Colors.white54);
-                              },
-                              separatorBuilder: (context, index) {
-                                return Divider(
-                                  color: Colors.brown[50],
-                                  height: 3,
-                                );
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 16.0,
-                          ),
-                          if (order.orderStatusId == 0)
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                          foregroundColor: Theme.of(context)
-                                              .colorScheme
-                                              .onPrimary,
-                                          backgroundColor: Colors.blue.shade700,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 10),
-                                          shape: StadiumBorder())
-                                      .copyWith(
-                                          elevation:
-                                              ButtonStyleButton.allOrNull(0.0)),
-                                  onPressed: _isSaveLoading
-                                      ? null // Yükleme devam ederken butonu devre dışı bırak
-                                      : () async {
-                                          setState(() {
-                                            _isSaveLoading = true;
-                                          });
-                                          var message = await _repository
-                                              .sendAppOrder(widget.uid);
-                                          setState(() {
-                                            _isSaveLoading = false;
-                                          });
-
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                              content: Text(message),
-                                              duration:
-                                                  const Duration(seconds: 3),
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                            ),
-                                          );
-
-                                          Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                  builder: (context) {
-                                            return OrderDetail(
-                                              uid: widget.uid,
-                                            );
-                                          }));
-                                        },
-                                  child: _buildButtonChild(),
-                                ),
-                              ),
-                            ),
-                          const SizedBox(
-                            height: 40.0,
-                          ),
-                        ],
-                      ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _detailDataFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              _order == null) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Details could not be loaded: ${snapshot.error}',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                      onPressed: _refreshDetails,
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor),
                     ),
-                  )),
-            ),
+                  ],
+                ),
+              ),
+            );
+          } else if (_order == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Order details could not be loaded.',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Go Back'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return _buildOrderDetailContent();
+        },
+      ),
     );
   }
 
-  void _showCustomerBottomSheet(BuildContext context) {
-    _filteredCustomers = List.from(customers ?? []);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return StatefulBuilder(// StatefulBuilder ekleyin
-            builder: (BuildContext context, StateSetter setState) {
-          return LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              return Container(
-                height: constraints.maxHeight * 0.8,
-                child: Column(children: [
+  Widget _buildOrderDetailContent() {
+    return Form(
+      child: ListView(
+        // SingleChildScrollView yerine ListView, section'lar için daha iyi
+        padding: const EdgeInsets.all(16.0),
+        children: <Widget>[
+          Card(
+            color: Theme.of(context).cardColor.withValues(alpha: 0.8),
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(0.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Select Customer',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green[700]),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search Customer',
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        alignLabelWithHint: true,
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide.none,
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
+                      padding: const EdgeInsetsGeometry.symmetric(
+                          horizontal: 10, vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("ORDER INFO",
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFB79C91))),
+                          if (_order!.orderStatusId == 0)
+                            SizedBox(
+                              height: 30,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.deepOrange,
+                                  shadowColor: Colors.white,
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(Icons.edit),
+                                label: const Text('EDIT ORDER'),
+                                onPressed: _isSyncing ? null : _sendToEdit,
+                              ),
+                            ),
+                        ],
+                      )),
+                  _buildInfoCard([
+                    _buildInfoRow("Order Number:", _order!.orderNumber,
+                        isHighlighted: true),
+                    _buildInfoRow("Status:", _order!.statusName,
+                        statusColor: _getStatusColor(_order!.orderStatusId),
+                        isHighlighted: true),
+                    _buildInfoRow("Order Type:",
+                        _saleOrderType?.typeName ?? "Bilinmiyor"),
+                    _buildInfoRow(
+                        "Order Date:",
+                        DateFormat('dd.MM.yyyy HH:mm')
+                            .format(_order!.orderDate!)),
+                    if (_order!.orderSyncDate != null &&
+                        _order!.orderSyncDate != _order!.orderDate)
+                      _buildInfoRow(
+                          "Sync Date:",
+                          DateFormat('dd.MM.yyyy HH:mm')
+                              .format(_order!.orderSyncDate!)),
+                  ]),
+                  const SizedBox(
+                      height: 20,
+                      child: Divider(
+                          height: 16,
+                          thickness: 0.5,
+                          indent: 16,
+                          endIndent: 16)),
+                  _buildInfoCard([
+                    _buildInfoLine(_customer?.accountCode ?? ""),
+                    _buildInfoLine(_customer?.customerName ?? "",
+                        maxLines: 2, isHighlighted: true),
+                    if (_customerUser != null) ...[
+                      const Divider(height: 16, thickness: 0.5),
+                      _buildInfoRow(
+                          "#${_customerUser!.id} ", _customerUser!.contactName),
+                    ]
+                  ]),
+                  const SizedBox(
+                      height: 20,
+                      child: Divider(
+                          height: 16,
+                          thickness: 0.5,
+                          indent: 16,
+                          endIndent: 16)),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Card(
+                      color: Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(_order!.description,
+                            style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey[700],
+                                height: 1.4)),
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                          _filteredCustomers = customers!
-                              .where((customer) =>
-                                  customer.accountCode
-                                      .toLowerCase()
-                                      .contains(_searchQuery.toLowerCase()) ||
-                                  customer.customerName!
-                                      .toLowerCase()
-                                      .contains(_searchQuery.toLowerCase()))
-                              .toList();
-                        });
-                      },
                     ),
                   ),
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: _filteredCustomers?.length ?? 0,
-                      itemBuilder: (context, index) {
-                        return ListTile(
-                          tileColor: Colors.transparent,
-                          leading: Text(
-                            _filteredCustomers![index].accountCode,
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: customerCode.text ==
-                                        _filteredCustomers?[index].accountCode
-                                    ? Colors.green[700]
-                                    : Colors.black),
-                          ),
-                          title: Text(
-                            _filteredCustomers![index].customerName ?? "",
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: customerCode.text ==
-                                        _filteredCustomers![index].accountCode
-                                    ? FontWeight.w900
-                                    : FontWeight.normal,
-                                color: customerCode.text ==
-                                        _filteredCustomers![index].accountCode
-                                    ? Colors.green[700]
-                                    : Colors.black),
-                          ),
-                          onTap: () {
-                            customerCode.text =
-                                _filteredCustomers![index].accountCode;
-                            customerCodeFull.text =
-                                "${_filteredCustomers![index].accountCode} - ${_filteredCustomers![index].customerName ?? "No Customer"}";
+                  const SizedBox(
+                      height: 20,
+                      child: Divider(
+                          height: 16,
+                          thickness: 0.5,
+                          indent: 16,
+                          endIndent: 16)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildFileAttachmentSection(),
+          const SizedBox(height: 20),
+          _buildSectionTitle("ORDER ITEMS (${_orderRows.length})",
+              icon: Icons.list_alt_rounded),
+          _buildOrderRowsSection(),
+          const SizedBox(height: 20),
+          if (_order!.orderStatusId == 0)
+            ElevatedButton.icon(
+              icon: const Icon(Icons.edit),
+              label: const Text('EDIT TEMP ORDER'),
+              onPressed: _isSyncing ? null : _sendToEdit,
+            ),
+        ],
+      ),
+    );
+  }
 
-                            order.accountCode =
-                                _filteredCustomers![index].accountCode;
-                            order.customerUserId = 0;
+  Widget _buildSectionTitle(String title, {IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0, top: 8.0),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: Theme.of(context).primaryColor, size: 20),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).primaryColorDark),
+          ),
+        ],
+      ),
+    );
+  }
 
-                            userId.text = '0';
-                            userName.text = '#0 - No User';
+  Widget _buildInfoCard(List<Widget> children) {
+    return Card(
+      color: Colors.pinkAccent.withValues(alpha: 0.1),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
+    );
+  }
 
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
-                      separatorBuilder: (context, index) {
-                        return Divider(
-                          color: Colors.grey[200],
-                          thickness: 1,
-                          height: 1,
-                        );
-                      },
-                    ),
-                  ),
-                ]),
-              );
+  Widget _buildInfoRow(String label, String value,
+      {bool isHighlighted = false, int maxLines = 1, Color? statusColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120, // Etiket genişliği
+            child: Text(
+              label,
+              style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight:
+                      isHighlighted ? FontWeight.bold : FontWeight.normal,
+                  color: statusColor ?? Colors.black87),
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoLine(String value,
+      {bool isHighlighted = false, int maxLines = 1, Color? statusColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Text(
+        value,
+        style: TextStyle(
+            fontSize: 15,
+            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+            color: statusColor ?? Colors.black87),
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Color _getStatusColor(int? orderStatusId) {
+    switch (orderStatusId) {
+      case 0:
+        return Colors.orange.shade700; // Beklemede
+      case -1:
+        return Colors.red.shade700; // İptal
+      case 1:
+        return Colors.green.shade700; // Tamamlandı
+      // Diğer durumlar için renkler eklenebilir
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  Widget _buildOrderRowsSection() {
+    if (_orderRows.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.0),
+        child: Center(
+            child: Text("Bu siparişte henüz kalem yok.",
+                style: TextStyle(color: Colors.grey))),
+      );
+    }
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListView.separated(
+        shrinkWrap: true,
+        // ListView içinde ListView için
+        physics: const NeverScrollableScrollPhysics(),
+        // Ana ListView kaydırsın
+        itemCount: _orderRows.length,
+        itemBuilder: (context, index) {
+          final row = _orderRows[index];
+          return ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).primaryColorLight,
+              child: Text(
+                row.quantity!.toStringAsFixed(0),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColorDark),
+              ),
+            ),
+            title: Text(row.itemCode,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(
+                "Birim Fiyat: ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(row.unitPrice)}\n"
+                "Toplam: 0",
+                style: TextStyle(color: Colors.grey[700], height: 1.3)),
+            trailing: Icon(Icons.arrow_forward_ios_rounded,
+                size: 16, color: Colors.grey[400]),
+            onTap: () {
+              // Kalem detayına git veya düzenle
+              // Navigator.push(context, MaterialPageRoute(builder: (context) => OrderRowDetailPage(rowId: row.id)));
             },
           );
-        });
-      },
+        },
+        separatorBuilder: (context, index) =>
+            const Divider(height: 0.5, indent: 16, endIndent: 16),
+      ),
     );
   }
 
-  void _showUserBottomSheet(BuildContext context) {
-    _filterCustomerUsers();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            return Container(
-              height: constraints.maxHeight * 0.69, // Ekranın %60'ı
-              child: Column(children: [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'Select Customer User',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: filteredCustomerUsers?.length ?? 0,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        tileColor: Colors.transparent,
-                        leading: Text(
-                          '#${filteredCustomerUsers![index].id}',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: userId.text ==
-                                      '${filteredCustomerUsers![index].id}'
-                                  ? Colors.green[700]
-                                  : Colors.black),
+  Widget _buildFileAttachmentSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (pickedFiles.isNotEmpty)
+          Container(
+            height: 110,
+            margin: const EdgeInsets.only(bottom: 10, top: 0),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300)),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: pickedFiles.length,
+              itemBuilder: (context, index) {
+                final file = pickedFiles[index];
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.grey.shade400, width: 0.5)),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.file(
+                            File(file.path),
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                    width: 90,
+                                    height: 90,
+                                    color: Colors.grey[200],
+                                    child: Icon(Icons.broken_image_outlined,
+                                        color: Colors.grey[400])),
+                          ),
                         ),
-                        title: Text(filteredCustomerUsers![index].contactName,
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: userId.text ==
-                                        '${filteredCustomerUsers![index].id}'
-                                    ? Colors.green[700]
-                                    : Colors.black)),
-                        subtitle: Text(
-                            '${filteredCustomerUsers![index].departmentName} - <${filteredCustomerUsers![index].emailAddress}>',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: userId.text ==
-                                        '${filteredCustomerUsers![index].id}'
-                                    ? Colors.green[700]
-                                    : Colors.black)),
-                        onTap: () {
-                          userId.text = '${filteredCustomerUsers![index].id}';
-                          userName.text =
-                              '#${filteredCustomerUsers![index].id} - ${filteredCustomerUsers![index].contactName}';
-
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                    separatorBuilder: (context, index) {
-                      return Divider(
-                        color: Colors.grey[200],
-                        thickness: 1,
-                        height: 1,
-                      );
-                    },
-                  ),
-                ),
-              ]),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showOrderTypeBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            return Container(
-              height: constraints.maxHeight * 0.5, // Ekranın %60'ı
-              child: Column(children: [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'Select Order Type',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: orderTypes?.length ?? 0,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        tileColor: Colors.transparent,
-                        leading: Text(
-                          '#${orderTypes![index].id}',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color:
-                                  orderTypeId.text == '${orderTypes![index].id}'
-                                      ? Colors.green[700]
-                                      : Colors.black),
+                      ),
+                      InkWell(
+                        onTap: () => _removeFile(file),
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 18),
                         ),
-                        title: Text(orderTypes![index].typeName,
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: orderTypeId.text ==
-                                        '${orderTypes![index].id}'
-                                    ? Colors.green[700]
-                                    : Colors.black)),
-                        onTap: () {
-                          orderTypeId.text = '${orderTypes![index].id}';
-                          orderTypeFull.text =
-                              '${orderTypes![index].id} - ${orderTypes![index].typeName}';
-
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                    separatorBuilder: (context, index) {
-                      return Divider(
-                        color: Colors.grey[200],
-                        thickness: 1,
-                        height: 1,
-                      );
-                    },
+                      )
+                    ],
                   ),
-                ),
-              ]),
-            );
-          },
-        );
-      },
+                );
+              },
+            ),
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.camera_alt_outlined, size: 20),
+                label: const Text("Kamera"),
+                onPressed: () => _pickImage(ImageSource.camera),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).primaryColor,
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.7)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.photo_library_outlined, size: 20),
+                label: const Text("Galeri"),
+                onPressed: () => _pickImage(ImageSource.gallery),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.deepOrange,
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,6 @@
-import 'package:dveci_app/models/saleorder.dart';
-import 'package:dveci_app/models/saleorderdocument.dart';
-import 'package:dveci_app/models/saleorderrow.dart';
+import '../models/saleorder.dart';
+import '../models/saleorderdocument.dart';
+import '../models/saleorderrow.dart';
 
 class OrderRequest {
   SaleOrder order;

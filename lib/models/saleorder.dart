@@ -60,7 +60,7 @@ class SaleOrder {
             m['recordIp']);
 
   Map<String, dynamic> toMap() {
-    var map = Map<String, dynamic>();
+    var map = <String, dynamic>{};
 
     map["id"] = id;
     map["orderId"] = orderId;
@@ -85,7 +85,7 @@ class SaleOrder {
   }
 
   Map<String, dynamic> toJson() {
-    var map = Map<String, dynamic>();
+    var map = <String, dynamic>{};
 
     map["id"] = id;
     map["orderId"] = orderId;

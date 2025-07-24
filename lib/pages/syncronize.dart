@@ -4,10 +4,9 @@ import '../database/db_helper.dart';
 import '../repositories/syncrepository.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
-import '../widgets/floating_button.dart';
 
 class Syncronize extends StatefulWidget {
-  const Syncronize({Key? key}) : super(key: key);
+  const Syncronize({super.key});
 
   @override
   State<Syncronize> createState() => _SyncronizeState();
@@ -247,10 +246,7 @@ class _SyncronizeState extends State<Syncronize> {
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       drawer: drawerMenu(context, "D-Veci"),
-      floatingActionButton: floatingButton(context),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.miniCenterDocked,
-      bottomNavigationBar: bottomWidget(context),
+      bottomNavigationBar: bottomWidget(context, 0),
       appBar: AppBar(
         title: const Text(
           "Synchronise",
@@ -281,6 +277,10 @@ class _SyncronizeState extends State<Syncronize> {
                           setState(() {
                             _isColorLoading = false;
                           });
+
+                          if (!context.mounted) {
+                            return;
+                          }
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -316,7 +316,9 @@ class _SyncronizeState extends State<Syncronize> {
                           setState(() {
                             _isSizeLoading = false;
                           });
-
+                          if (!context.mounted) {
+                            return;
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content:
@@ -351,7 +353,9 @@ class _SyncronizeState extends State<Syncronize> {
                         setState(() {
                           _isPrefixLoading = false;
                         });
-
+                        if (!context.mounted) {
+                          return;
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(message),
@@ -384,6 +388,9 @@ class _SyncronizeState extends State<Syncronize> {
                             _isEmployeeLoading = false;
                           });
 
+                          if (!context.mounted) {
+                            return;
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(message),
@@ -415,6 +422,9 @@ class _SyncronizeState extends State<Syncronize> {
                             _isCustomerLoading = false;
                           });
 
+                          if (!context.mounted) {
+                            return;
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(message),
@@ -446,6 +456,9 @@ class _SyncronizeState extends State<Syncronize> {
                             _isUserLoading = false;
                           });
 
+                          if (!context.mounted) {
+                            return;
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(message),
@@ -477,6 +490,9 @@ class _SyncronizeState extends State<Syncronize> {
                             _isStatusLoading = false;
                           });
 
+                          if (!context.mounted) {
+                            return;
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(message),
