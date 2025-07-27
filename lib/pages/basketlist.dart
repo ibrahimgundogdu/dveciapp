@@ -362,7 +362,6 @@ class _BasketListState extends State<BasketList> {
             ),
           ));
           if (result == true) {
-            // DetailBasketItem'dan bir değişiklik olduğunu belirtirse
             _refreshBasketData();
           }
         },

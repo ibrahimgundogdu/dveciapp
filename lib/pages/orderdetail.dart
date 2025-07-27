@@ -16,6 +16,8 @@ import '../models/saleordertype.dart';
 import '../repositories/apirepository.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
+import 'full_screen_image_page.dart';
+import 'order_row_detail.dart';
 
 class OrderDetail extends StatefulWidget {
   final String uid;
@@ -39,9 +41,16 @@ class _OrderDetailState extends State<OrderDetail> {
   final ImagePicker _picker = ImagePicker();
   List<SaleOrderRow> _orderRows = [];
   List<SaleOrderDocument> _orderDocuments = [];
+  List<SaleOrderDocument> _orderRowDocuments = [];
   final List<XFile> pickedFiles = [];
 
   bool _isSyncing = false;
+  final bool _isLoading = false;
+
+  static const Color primaryColor = Color(0xFFB79C91);
+  static const Color accentColor = Color(0xFF8F7A70);
+  static const Color cardBackgroundColor = Color(0xFFF9F5F3);
+  static const Color textColor = Colors.black87;
 
   @override
   void initState() {
@@ -64,6 +73,8 @@ class _OrderDetailState extends State<OrderDetail> {
           await _dbHelper.getSaleOrderTypeById(order.orderTypeId!);
       final orderRows = await _dbHelper.getOrderRows(widget.uid);
       final orderDocuments = await _dbHelper.getOrderDocuments(widget.uid);
+      final orderRowDocuments =
+          await _dbHelper.getOrderRowAllDocuments(widget.uid);
 
       setState(() {
         _order = order;
@@ -72,6 +83,7 @@ class _OrderDetailState extends State<OrderDetail> {
         _saleOrderType = saleOrderType;
         _orderRows = orderRows;
         _orderDocuments = orderDocuments!;
+        _orderRowDocuments = orderRowDocuments!;
       });
 
       if (orderDocuments != null) {
@@ -153,6 +165,8 @@ class _OrderDetailState extends State<OrderDetail> {
       final XFile? imageFile =
           await _picker.pickImage(source: source, imageQuality: 85);
       if (imageFile != null) {
+        await _saveImageToDocuments(imageFile);
+
         setState(() {
           if (!pickedFiles.any((file) => file.path == imageFile.path) &&
               !_orderDocuments
@@ -162,16 +176,24 @@ class _OrderDetailState extends State<OrderDetail> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                   content: Text(
-                      'Bu dosya zaten ekli veya aynı isimde mevcut bir dosya var.')),
+                      'This file is already attached or an existing file with the same name..')),
             );
           }
         });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Dosya seçilemedi: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('The file could not be selected: $e')));
       }
+    }
+  }
+
+  Future<void> _saveImageToDocuments(XFile imageFile) async {
+    try {
+      await _dbHelper.addOrderXFileuid(widget.uid, imageFile);
+    } catch (e) {
+      //
     }
   }
 
@@ -219,13 +241,16 @@ class _OrderDetailState extends State<OrderDetail> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Color(0xFFB79C91)),
         actions: [
-          // Eğer düzenleme modu varsa, bir kaydet butonu eklenebilir
-          // if (_isEditMode)
-          //   IconButton(
-          //     icon: Icon(Icons.save_outlined, color: Color(0xFFB79C91)),
-          //     onPressed: _updateOrderDetails,
-          //     tooltip: 'Değişiklikleri Kaydet',
-          //   ),
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.deepOrange),
+            onPressed: _isSyncing ? null : _sendToEdit,
+            tooltip: 'EDIT ORDER',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_forever_outlined, color: Colors.red),
+            onPressed: _isSyncing ? null : _sendToEdit,
+            tooltip: 'EDIT ORDER',
+          ),
           IconButton(
             icon: _isSyncing
                 ? SizedBox(
@@ -233,16 +258,17 @@ class _OrderDetailState extends State<OrderDetail> {
                     height: 24,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.blue[700]))
-                : Icon(Icons.cloud_sync_outlined,
+                : Icon(Icons.cloud_upload_outlined,
                     color: Colors.blue[700], size: 28),
             onPressed: _isSyncing ? null : _sendToCloud,
             tooltip: 'SEND ORDER',
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFFB79C91)),
-            onPressed: _refreshDetails,
-            tooltip: 'REFRESH',
-          ),
+          if (_order != null && _order!.orderStatusId == 1)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFFB79C91)),
+              onPressed: _refreshDetails,
+              tooltip: 'REFRESH',
+            ),
         ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
@@ -254,7 +280,7 @@ class _OrderDetailState extends State<OrderDetail> {
           } else if (snapshot.hasError) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(10.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -275,7 +301,7 @@ class _OrderDetailState extends State<OrderDetail> {
           } else if (_order == null) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(10.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -303,10 +329,10 @@ class _OrderDetailState extends State<OrderDetail> {
     return Form(
       child: ListView(
         // SingleChildScrollView yerine ListView, section'lar için daha iyi
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(4.0),
         children: <Widget>[
           Card(
-            color: Theme.of(context).cardColor.withValues(alpha: 0.8),
+            color: Colors.grey.withAlpha(20),
             elevation: 0,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -378,13 +404,6 @@ class _OrderDetailState extends State<OrderDetail> {
                           "#${_customerUser!.id} ", _customerUser!.contactName),
                     ]
                   ]),
-                  const SizedBox(
-                      height: 20,
-                      child: Divider(
-                          height: 16,
-                          thickness: 0.5,
-                          indent: 16,
-                          endIndent: 16)),
                   SizedBox(
                     width: double.infinity,
                     child: Card(
@@ -402,51 +421,34 @@ class _OrderDetailState extends State<OrderDetail> {
                       ),
                     ),
                   ),
-                  const SizedBox(
-                      height: 20,
-                      child: Divider(
-                          height: 16,
-                          thickness: 0.5,
-                          indent: 16,
-                          endIndent: 16)),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 20),
           _buildFileAttachmentSection(),
-          const SizedBox(height: 20),
-          _buildSectionTitle("ORDER ITEMS (${_orderRows.length})",
-              icon: Icons.list_alt_rounded),
           _buildOrderRowsSection(),
           const SizedBox(height: 20),
           if (_order!.orderStatusId == 0)
-            ElevatedButton.icon(
-              icon: const Icon(Icons.edit),
-              label: const Text('EDIT TEMP ORDER'),
-              onPressed: _isSyncing ? null : _sendToEdit,
+            SizedBox(
+              height: 50,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.lightBlueAccent.shade100,
+                  foregroundColor: Colors.blue[900],
+                ),
+                icon: Icon(
+                  Icons.cloud_upload_outlined,
+                  size: 24,
+                  color: Colors.blue[900],
+                ),
+                label: const Text('  SEND ORDER TO THE CLOUD',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                onPressed: _isSyncing ? null : _sendToCloud,
+              ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, {IconData? icon}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0, top: 8.0),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: Theme.of(context).primaryColor, size: 20),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColorDark),
-          ),
+          const SizedBox(height: 80),
         ],
       ),
     );
@@ -454,7 +456,7 @@ class _OrderDetailState extends State<OrderDetail> {
 
   Widget _buildInfoCard(List<Widget> children) {
     return Card(
-      color: Colors.pinkAccent.withValues(alpha: 0.1),
+      color: const Color(0x00ffdfdf).withAlpha(100),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -532,54 +534,200 @@ class _OrderDetailState extends State<OrderDetail> {
   }
 
   Widget _buildOrderRowsSection() {
+    if (_isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: primaryColor));
+    }
     if (_orderRows.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.0),
+        padding: EdgeInsets.all(10.0),
         child: Center(
-            child: Text("Bu siparişte henüz kalem yok.",
-                style: TextStyle(color: Colors.grey))),
+          child: Text(
+            "This order has not yet been added to the product.",
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+        ),
       );
     }
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListView.separated(
-        shrinkWrap: true,
-        // ListView içinde ListView için
-        physics: const NeverScrollableScrollPhysics(),
-        // Ana ListView kaydırsın
-        itemCount: _orderRows.length,
-        itemBuilder: (context, index) {
-          final row = _orderRows[index];
-          return ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).primaryColorLight,
-              child: Text(
-                row.quantity!.toStringAsFixed(0),
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColorDark),
-              ),
+
+    final bool canEditOrderItems = _order?.orderStatusId == 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 10.0),
+          child: Center(
+            child: Text(
+              "ORDER ITEMS (${_orderRows.length})",
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor),
             ),
-            title: Text(row.itemCode,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(
-                "Birim Fiyat: ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(row.unitPrice)}\n"
-                "Toplam: 0",
-                style: TextStyle(color: Colors.grey[700], height: 1.3)),
-            trailing: Icon(Icons.arrow_forward_ios_rounded,
-                size: 16, color: Colors.grey[400]),
-            onTap: () {
-              // Kalem detayına git veya düzenle
-              // Navigator.push(context, MaterialPageRoute(builder: (context) => OrderRowDetailPage(rowId: row.id)));
-            },
-          );
-        },
-        separatorBuilder: (context, index) =>
-            const Divider(height: 0.5, indent: 16, endIndent: 16),
-      ),
+          ),
+        ),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _orderRows.length,
+          itemBuilder: (context, index) {
+            final row = _orderRows[index];
+
+            final bool rowHasDescription = row.description.isNotEmpty;
+            final bool rowHasPhotos =
+                _orderRowDocuments.any((doc) => doc.saleOrderRowUid == row.uid);
+
+            return Card(
+              elevation: 1,
+              margin:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+              color: cardBackgroundColor,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+                leading: Text(
+                  '#${index + 1}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.grey),
+                ),
+                title: Text(
+                  row.qrCode,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: textColor), // textColor'ınızı kullanın
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (row.description.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2.0),
+                        child: Text(
+                          row.description,
+                          // Modelden gelen ürün açıklaması
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: textColor.withValues(alpha: 0.7)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        "${row.quantity} x ${row.unitPrice} ${row.currency}",
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey.withValues(alpha: 0.9)),
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (rowHasDescription)
+                      Icon(Icons.notes_outlined,
+                          color: accentColor.withValues(alpha: 0.7), size: 20),
+                    if (rowHasDescription && rowHasPhotos)
+                      const SizedBox(width: 6),
+                    if (rowHasPhotos)
+                      Icon(Icons.image_outlined,
+                          color: accentColor.withValues(alpha: 0.7), size: 20),
+                    if (canEditOrderItems)
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            color: Colors.redAccent.withAlpha(200), size: 24),
+                        tooltip: 'Delete the Item',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () async {
+                          final confirmDelete = await showDialog<bool>(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text('Delete the Item'),
+                                content: Text(
+                                    'Are you sure you want to delete the "${row.qrCode}" coded product from order?'),
+                                actions: <Widget>[
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text('CANCEL'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    child: const Text('DELETE',
+                                        style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+
+                          if (confirmDelete == true && mounted) {
+                            try {
+                              await _dbHelper.removeOrderRow(row.uid);
+                              _orderRows
+                                  .removeWhere((item) => item.uid == row.uid);
+                              await _refreshDetails();
+
+                              if (!context.mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('"${row.qrCode}" deleted.'),
+                                    backgroundColor: Colors.orange),
+                              );
+                              // setState(() {}); // _refreshOrderTotalsAndCounts veya _refreshDetails zaten setState içerir
+                            } catch (e) {
+                              if (!context.mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Error while the item is deleted: $e',
+                                        style: const TextStyle(
+                                            color: Colors.white)),
+                                    backgroundColor: Colors.redAccent),
+                              );
+                              await _refreshDetails();
+                            }
+                          }
+                        },
+                      ),
+                  ],
+                ),
+                onTap: () {
+                  Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OrderDetailRowEditPage(
+                        orderUid: widget.uid,
+                        orderRowUid: row.uid,
+                      ),
+                    ),
+                  ).then((result) {
+                    if (result == true && mounted) {
+                      _refreshDetails();
+                    }
+                  });
+                },
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -600,30 +748,49 @@ class _OrderDetailState extends State<OrderDetail> {
               itemCount: pickedFiles.length,
               itemBuilder: (context, index) {
                 final file = pickedFiles[index];
+                final String imagePath = file.path;
+                final String uniqueHeroTag = 'imageHero_$imagePath';
+
                 return Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Stack(
                     alignment: Alignment.topRight,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: Colors.grey.shade400, width: 0.5)),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: Image.file(
-                            File(file.path),
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                    width: 90,
-                                    height: 90,
-                                    color: Colors.grey[200],
-                                    child: Icon(Icons.broken_image_outlined,
-                                        color: Colors.grey[400])),
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FullScreenImagePage(
+                                filePath: imagePath,
+                                heroTag: uniqueHeroTag,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.grey.shade400, width: 0.5)),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: Hero(
+                              tag: uniqueHeroTag,
+                              child: Image.file(
+                                File(file.path),
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                        width: 90,
+                                        height: 90,
+                                        color: Colors.grey[200],
+                                        child: Icon(Icons.broken_image_outlined,
+                                            color: Colors.grey[400])),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -651,7 +818,7 @@ class _OrderDetailState extends State<OrderDetail> {
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.camera_alt_outlined, size: 20),
-                label: const Text("Kamera"),
+                label: const Text("Camera"),
                 onPressed: () => _pickImage(ImageSource.camera),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -670,7 +837,7 @@ class _OrderDetailState extends State<OrderDetail> {
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.photo_library_outlined, size: 20),
-                label: const Text("Galeri"),
+                label: const Text("Gallery"),
                 onPressed: () => _pickImage(ImageSource.gallery),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,

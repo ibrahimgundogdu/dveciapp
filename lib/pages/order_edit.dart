@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../database/db_helper.dart';
 import '../models/customer.dart';
 import '../models/customeruser.dart';
 import '../models/saleorder.dart';
-import '../models/saleorderdocument.dart';
-import '../models/saleorderrow.dart';
 import '../models/saleordertype.dart';
+import 'orderdetail.dart';
 
 class OrderEditPage extends StatefulWidget {
   final String orderUid;
@@ -23,8 +21,6 @@ class _OrderEditPageState extends State<OrderEditPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   SaleOrder? _currentOrder;
-  List<SaleOrderRow> _currentOrderItems = [];
-
   Customer? _selectedCustomer;
   CustomerUser? _selectedCustomerUser;
   SaleOrderType? _selectedOrderType;
@@ -39,13 +35,21 @@ class _OrderEditPageState extends State<OrderEditPage> {
   List<Customer> _allCustomers = [];
   List<CustomerUser> _allCustomerUsers = [];
   List<SaleOrderType> _allOrderTypes = [];
-  List<Customer> _filteredCustomers = [];
+
+  // Filtrelenmiş listeler (bottom sheet için)
+  List<Customer> _filteredCustomersForSelection = [];
   List<CustomerUser> _filteredCustomerUsersForSelection = [];
 
   bool _isLoading = true;
   bool _isSaving = false;
 
-  final List<XFile> _newlyPickedFiles = [];
+  // OrderDetail sayfanızdaki renkler (Örnek, kendi renklerinizi kullanın)
+  static const Color primaryColor = Color(0xFFB79C91); // Ana renk
+  static const Color accentColor = Color(0xFF8F7A70); // Vurgu rengi
+  static const Color backgroundColor = Colors.white; // Arka plan
+  static const Color cardBackgroundColor = Color(0xFFF9F5F3); // Kart arka planı
+  static const Color textColor = Colors.black87;
+  static const Color hintColor = Colors.grey;
 
   @override
   void initState() {
@@ -61,78 +65,56 @@ class _OrderEditPageState extends State<OrderEditPage> {
         throw Exception("Sipariş bulunamadı.");
       }
 
-      if (_currentOrder!.orderStatusId != 0) {
-        if (!mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Bu sipariş onaylandığı için düzenlenemez.')),
-        );
-        Navigator.of(context).pop();
-        return;
-      }
-
-      _currentOrderItems = await _dbHelper.getOrderRows(widget.orderUid);
-
       _allCustomers = await _dbHelper.getCustomers();
-      _allCustomerUsers = await _dbHelper.getCustomerUsers();
+      _allCustomerUsers =
+          await _dbHelper.getCustomerUsers(); // Tüm kullanıcıları yükle
       _allOrderTypes = await _dbHelper.getSaleOrderType();
-      _filteredCustomers = _allCustomers;
+
+      _filteredCustomersForSelection =
+          _allCustomers; // Başlangıçta tüm müşteriler
 
       if (_currentOrder != null) {
-        try {
-          _selectedCustomer = _allCustomers.firstWhere(
-            (c) => c.accountCode == _currentOrder!.accountCode,
-          );
-        } catch (e) {
-          _selectedCustomer = null;
-        }
+        _selectedCustomer = _allCustomers
+            .firstWhere((c) => c.accountCode == _currentOrder!.accountCode);
+        _customerDisplayController.text = _selectedCustomer != null
+            ? "${_selectedCustomer!.accountCode} - ${_selectedCustomer!.customerName ?? ''}"
+            : "Müşteri Seçilmedi";
 
+        // Müşteri seçiliyse, o müşteriye ait kullanıcıları filtrele
         if (_selectedCustomer != null) {
-          _customerDisplayController.text =
-              "${_selectedCustomer!.accountCode} - ${_selectedCustomer!.customerName ?? ''}";
           _filteredCustomerUsersForSelection = _allCustomerUsers
               .where(
                   (user) => user.accountCode == _selectedCustomer!.accountCode)
               .toList();
-
+          // Mevcut Kullanıcıyı Seç
           if (_currentOrder!.customerUserId != null &&
               _currentOrder!.customerUserId != 0) {
-            _selectedCustomerUser = _allCustomerUsers.firstWhere((u) =>
-                u.id == _currentOrder!.customerUserId &&
-                u.accountCode == _selectedCustomer!.accountCode);
-
-            if (_selectedCustomerUser != null) {
-              _userDisplayController.text =
-                  "${_selectedCustomerUser!.id} - ${_selectedCustomerUser!.contactName}";
-            } else {
-              _userDisplayController.text = "Yetkili Seç (Opsiyonel)";
-            }
-          } else {
-            _userDisplayController.text = "Yetkili Seç (Opsiyonel)";
+            _selectedCustomerUser = _filteredCustomerUsersForSelection
+                .firstWhere((u) => u.id == _currentOrder!.customerUserId);
           }
-        } else {
-          _customerDisplayController.text = "Müşteri Seçin";
         }
+        _userDisplayController.text = _selectedCustomerUser != null
+            ? "${_selectedCustomerUser!.id} - ${_selectedCustomerUser!.contactName}"
+            : "Yetkili Seç (Opsiyonel)";
 
-        _selectedOrderType = _allOrderTypes.firstWhere(
-          (type) => type.id == _currentOrder!.orderTypeId,
-        );
-        if (_selectedOrderType != null) {
-          _orderTypeDisplayController.text =
-              "${_selectedOrderType!.id} - ${_selectedOrderType!.typeName}";
-        } else {
-          _orderTypeDisplayController.text = "Sipariş Tipi Seçin";
-        }
+        // Mevcut Sipariş Tipini Seç
+        _selectedOrderType = _allOrderTypes
+            .firstWhere((type) => type.id == _currentOrder!.orderTypeId);
+        _orderTypeDisplayController.text = _selectedOrderType != null
+            ? _selectedOrderType!.typeName
+            : "Sipariş Tipi Seçilmedi";
+
         _descriptionController.text = _currentOrder!.description;
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sipariş yüklenirken hata: $e')),
+          SnackBar(
+              content: Text('Sipariş yüklenirken hata: $e',
+                  style: const TextStyle(color: Colors.white)),
+              backgroundColor: Colors.redAccent),
         );
-        // Navigator.of(context).pop(); // Hata durumunda sayfadan çık
+        Navigator.of(context).pop(); // Hata durumunda sayfadan çık
       }
     } finally {
       if (mounted) {
@@ -141,95 +123,59 @@ class _OrderEditPageState extends State<OrderEditPage> {
     }
   }
 
-  void _filterCustomersForSelection(String query) {
-    setState(() {
-      _filteredCustomers = query.isEmpty
-          ? _allCustomers
-          : _allCustomers
-              .where((c) =>
-                  c.accountCode.toLowerCase().contains(query.toLowerCase()) ||
-                  (c.customerName?.toLowerCase() ?? '')
-                      .contains(query.toLowerCase()))
-              .toList();
-    });
-  }
-
-  void _filterCustomerUsersForSelection(String query) {
-    final baseList = _selectedCustomer != null
-        ? _allCustomerUsers
-            .where((user) => user.accountCode == _selectedCustomer!.accountCode)
-            .toList()
-        : <CustomerUser>[];
-    setState(() {
-      _filteredCustomerUsersForSelection = query.isEmpty
-          ? baseList
-          : baseList
-              .where((user) =>
-                  user.contactName
-                      .toLowerCase()
-                      .contains(query.toLowerCase()) ||
-                  user.id.toString().contains(query))
-              .toList();
-    });
-  }
-
-  Future<void> _updateOrder() async {
+  Future<void> _updateOrderHeader() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (_selectedCustomer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen bir müşteri seçin.')));
+        const SnackBar(
+            content: Text('Lütfen bir müşteri seçin.',
+                style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.orangeAccent),
+      );
       return;
     }
     if (_selectedOrderType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen bir sipariş tipi seçin.')));
+        const SnackBar(
+            content: Text('Lütfen bir sipariş tipi seçin.',
+                style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.orangeAccent),
+      );
       return;
     }
-
-    // Sipariş satırı kontrolü (opsiyonel, düzenleme ayrı olacağı için belki burada gerekmez)
-    // if (_currentOrderItems.isEmpty) { /* ... uyarı ... */ }
 
     setState(() => _isSaving = true);
 
     try {
+      // DbHelper'ınızda bu isimde bir metodunuz olduğundan emin olun
       await _dbHelper.updateOrder(
         widget.orderUid,
         _selectedCustomer!.accountCode,
         _selectedCustomerUser?.id.toString() ?? "0",
         _selectedOrderType!.id.toString(),
-        _descriptionController.text,
+        _descriptionController.text.trim(),
       );
-
-      // for (SaleOrderDocument docToRemove in _filesToRemove) {
-      //   await _dbHelper.removeOrderDocumentById(docToRemove.id);
-      // }
-
-      for (XFile pickedFile in _newlyPickedFiles) {
-        SaleOrderDocument newDoc = SaleOrderDocument(
-          id: 0,
-          saleOrderUid: widget.orderUid,
-          saleOrderRowUid: null,
-          pathName: pickedFile.path,
-          documentName: pickedFile.name,
-        );
-        await _dbHelper.addOrderXFile(newDoc);
-      }
-
-      // Sipariş satırları için: Bu aşamada satır güncelleme/ekleme/silme işlemleri
-      // ayrı bir mekanizma (örn: bottom sheet'ten sonra) ile yönetilecek.
-      // Bu yüzden _updateOrder içinde satırlara dokunmuyoruz.
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Sipariş başlığı başarıyla güncellendi!')),
+              content: Text('The order was successfully updated!'),
+              backgroundColor: Colors.green),
         );
-        Navigator.of(context).pop(true); // Başarı ile dön
+        Navigator.of(context).pop(true);
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
+          return OrderDetail(uid: widget.orderUid);
+        }));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Sipariş güncellenirken hata: $e')));
+          SnackBar(
+              content: Text('Error during the update: $e',
+                  style: const TextStyle(color: Colors.white)),
+              backgroundColor: Colors.redAccent),
+        );
       }
     } finally {
       if (mounted) {
@@ -238,424 +184,243 @@ class _OrderEditPageState extends State<OrderEditPage> {
     }
   }
 
-  void _showCustomerSelectionSheet(BuildContext context) {
+  void _showItemSelectionSheet<T>({
+    required BuildContext context,
+    required String title,
+    required List<T> allItems,
+    required List<T> filteredItems,
+    required String Function(T item) displayItem,
+    required String Function(T item)? subtitleItem,
+    required void Function(T item) onItemSelected,
+    required void Function(String query, StateSetter setModalState) filterLogic,
+    required String searchHint,
+  }) {
     TextEditingController searchController = TextEditingController();
+
+    List<T> localFilteredItems = List.from(filteredItems);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: backgroundColor,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setModalState) {
+        builder: (BuildContext modalContext, StateSetter setModalState) {
           return DraggableScrollableSheet(
             initialChildSize: 0.6,
-            minChildSize: 0.3,
+            minChildSize: 0.4,
             maxChildSize: 0.9,
             expand: false,
-            builder: (_, controller) => Container(
+            builder: (_, scrollController) => Container(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('Müşteri Seç',
-                      style: Theme.of(context).textTheme.titleLarge),
+                  Center(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: searchController,
                     decoration: InputDecoration(
-                        hintText: 'Müşteri Kodu veya Adı Ara...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12))),
+                      hintText: searchHint,
+                      hintStyle:
+                          TextStyle(color: hintColor.withValues(alpha: 0.7)),
+                      prefixIcon: Icon(Icons.search,
+                          color: primaryColor.withValues(alpha: 0.7)),
+                      filled: true,
+                      fillColor: cardBackgroundColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                    ),
                     onChanged: (value) {
-                      _filterCustomersForSelection(value);
-                      setModalState(() {});
+                      // Dışarıdan gelen filtreleme mantığını çağır ve modal'in state'ini güncelle
+                      filterLogic(value, setModalState);
+                      // Bu kısım önemli: _showItemSelectionSheet'e gönderilen filteredItems listesi
+                      // ana widget'ın state'inde güncellenmeli ve buraya yansıtılmalı.
+                      // Veya `localFilteredItems` doğrudan burada filtrelenebilir.
+                      // Şimdilik ana widget'taki filtrelemenin yansıdığını varsayıyoruz.
+                      // Doğrudan local filtreleme için:
+                      setModalState(() {
+                        if (value.isEmpty) {
+                          localFilteredItems = List.from(allItems);
+                        } else {
+                          if (T == Customer) {
+                            localFilteredItems =
+                                (allItems as List<Customer>).where((item) {
+                              final c = item;
+                              return (c.accountCode
+                                      .toLowerCase()
+                                      .contains(value.toLowerCase()) ||
+                                  (c.customerName?.toLowerCase() ?? '')
+                                      .contains(value.toLowerCase()));
+                            }).toList() as List<T>;
+                          } else if (T == CustomerUser) {
+                            localFilteredItems =
+                                (allItems as List<CustomerUser>).where((item) {
+                              final u = item;
+                              return (u.contactName
+                                      .toLowerCase()
+                                      .contains(value.toLowerCase()) ||
+                                  u.id.toString().contains(value));
+                            }).toList() as List<T>;
+                          }
+                          // SaleOrderType için gerekirse eklenebilir
+                        }
+                      });
                     },
                   ),
                   const SizedBox(height: 10),
                   Expanded(
-                    child: _filteredCustomers.isEmpty
-                        ? const Center(child: Text("Müşteri bulunamadı"))
+                    child: localFilteredItems
+                            .isEmpty // localFilteredItems'ı kontrol et
+                        ? const Center(
+                            child: Text("Sonuç bulunamadı.",
+                                style: TextStyle(color: hintColor)))
                         : ListView.builder(
-                            controller: controller,
-                            itemCount: _filteredCustomers.length,
+                            controller: scrollController,
+                            itemCount: localFilteredItems.length,
+                            // localFilteredItems'ı kullan
                             itemBuilder: (context, index) {
-                              final customer = _filteredCustomers[index];
-                              return ListTile(
-                                title: Text(
-                                    "${customer.accountCode} - ${customer.customerName ?? ''}"),
-                                subtitle:
-                                    Text(customer.taxNumber ?? 'Vergi No Yok'),
-                                onTap: () {
-                                  setState(() {
-                                    _selectedCustomer = customer;
-                                    _customerDisplayController.text =
-                                        "${customer.accountCode} - ${customer.customerName ?? ''}";
-                                    _selectedCustomerUser = null;
-                                    _userDisplayController.text =
-                                        "Yetkili Seç (Opsiyonel)";
-                                    _filteredCustomerUsersForSelection =
-                                        _allCustomerUsers
-                                            .where((user) =>
-                                                user.accountCode ==
-                                                _selectedCustomer!.accountCode)
-                                            .toList();
-                                    _filterCustomerUsersForSelection('');
-                                  });
-                                  Navigator.pop(ctx);
-                                },
+                              final item = localFilteredItems[
+                                  index]; // localFilteredItems'ı kullan
+                              return Card(
+                                elevation: 1,
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                color: cardBackgroundColor,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                child: ListTile(
+                                  title: Text(displayItem(item),
+                                      style: const TextStyle(
+                                          color: textColor,
+                                          fontWeight: FontWeight.w500)),
+                                  subtitle: subtitleItem != null
+                                      ? Text(subtitleItem(item),
+                                          style: TextStyle(
+                                              color: textColor.withValues(
+                                                  alpha: 0.7)))
+                                      : null,
+                                  onTap: () {
+                                    onItemSelected(item);
+                                    Navigator.pop(ctx);
+                                  },
+                                ),
                               );
                             },
                           ),
                   ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    ).whenComplete(() => _filterCustomersForSelection(''));
-  }
-
-  void _showUserSelectionSheet(BuildContext context) {
-    if (_selectedCustomer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen önce bir müşteri seçin.')));
-      return;
-    }
-    TextEditingController searchUserController = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (BuildContext modalContext, StateSetter setModalState) {
-          List<CustomerUser> usersToList = _filteredCustomerUsersForSelection;
-          return DraggableScrollableSheet(
-            initialChildSize: 0.5,
-            minChildSize: 0.3,
-            maxChildSize: 0.8,
-            expand: false,
-            builder: (_, controller) => Container(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text('Yetkili Seç (Opsiyonel)',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: searchUserController,
-                    decoration: InputDecoration(
-                        hintText: 'Yetkili Adı veya ID Ara...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12))),
-                    onChanged: (value) {
-                      _filterCustomerUsersForSelection(value);
-                      setModalState(() {});
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  if (usersToList.isEmpty && _selectedCustomer != null)
-                    ListTile(
-                      title: const Text("Bu müşteriye ait yetkili yok"),
-                      leading: const Icon(Icons.person_off_outlined),
-                      onTap: () {
-                        setState(() {
-                          _selectedCustomerUser = null;
-                          _userDisplayController.text =
-                              "Yetkili Seç (Opsiyonel)";
-                        });
-                        Navigator.pop(ctx);
-                      },
-                    ),
-                  Expanded(
-                    child: usersToList.isEmpty
-                        ? const SizedBox.shrink()
-                        : ListView.builder(
-                            controller: controller,
-                            itemCount: usersToList.length,
-                            itemBuilder: (context, index) {
-                              final user = usersToList[index];
-                              return ListTile(
-                                title: Text(user.contactName),
-                                subtitle: Text(
-                                    "ID: ${user.id} ${user.departmentName.isNotEmpty ? '- ${user.departmentName}' : ''}"),
-                                onTap: () {
-                                  setState(() {
-                                    _selectedCustomerUser = user;
-                                    _userDisplayController.text =
-                                        "${user.id} - ${user.contactName}";
-                                  });
-                                  Navigator.pop(ctx);
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCustomerUser = null;
-                          _userDisplayController.text =
-                              "Yetkili Seç (Opsiyonel)";
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text("Yetkili Seçme"),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    ).whenComplete(() => _filterCustomerUsersForSelection(''));
-  }
-
-  void _showOrderTypeSelectionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text('Sipariş Tipi Seç',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _allOrderTypes.isEmpty
-                  ? const Center(child: Text("Sipariş tipi bulunamadı"))
-                  : ListView.builder(
-                      itemCount: _allOrderTypes.length,
-                      itemBuilder: (context, index) {
-                        final type = _allOrderTypes[index];
-                        return ListTile(
-                          title: Text(type.typeName),
-                          subtitle: Text("ID: ${type.id}"),
-                          onTap: () {
-                            setState(() {
-                              _selectedOrderType = type;
-                              _orderTypeDisplayController.text =
-                                  "${type.id} - ${type.typeName}";
-                            });
+                  // "Seçme" veya "Temizle" butonu (opsiyonel)
+                  if (title.contains("Yetkili")) // Sadece yetkili için "Seçme"
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Center(
+                        child: TextButton(
+                          onPressed: () {
+                            if (T == CustomerUser) {
+                              onItemSelected(null as T); // null gönder
+                            }
                             Navigator.pop(ctx);
                           },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Sipariş Satırlarını Yönetmek için placeholder bir fonksiyon.
-  // Bu fonksiyon, satırları listeleyen ve düzenleme/ekleme için
-  // yeni bir bottom sheet/sayfa açacak bir butonu tetikleyebilir.
-  void _manageOrderItems() {
-    // Örneğin, yeni bir sayfaya yönlendirme:
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => OrderItemsManagementPage(
-    //       orderUid: widget.orderUid,
-    //       currentItems: _currentOrderItems, // Mevcut satırları gönder
-    //       // Geri dönüşte güncellenmiş satırları almak için callback
-    //       onItemsUpdated: (updatedItems) {
-    //         setState(() {
-    //           _currentOrderItems = updatedItems;
-    //         });
-    //       },
-    //     ),
-    //   ),
-    // );
-
-    // Veya bir BottomSheet gösterme:
-    // showModalBottomSheet(context: context, builder: (ctx) => OrderItemsBottomSheet(...));
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text(
-              'Sipariş satırı yönetimi (ekleme/düzenleme/silme) daha sonra eklenecek.')),
-    );
-  }
-
-  Widget _buildEditFormContent() {
-    return Form(
-      key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0),
-        // FAB için altta boşluk
-        children: <Widget>[
-          _buildSectionTitle('Müşteri Bilgileri'),
-          Card(
-            elevation: 2,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(children: [
-                TextFormField(
-                  controller: _customerDisplayController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                      labelText: 'Müşteri *',
-                      hintText: 'Müşteri Seçin',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.business_outlined)),
-                  onTap: () => _showCustomerSelectionSheet(context),
-                  validator: (v) =>
-                      (v == null || v.isEmpty || _selectedCustomer == null)
-                          ? 'Müşteri seçimi zorunludur.'
-                          : null,
-                ),
-                if (_selectedCustomer != null) ...[
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _userDisplayController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                        labelText: 'Yetkili (Opsiyonel)',
-                        hintText: 'Yetkili Seçin',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.person_outline)),
-                    onTap: () => _showUserSelectionSheet(context),
-                  ),
-                ],
-              ]),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          _buildSectionTitle('Sipariş Detayları'),
-          Card(
-            elevation: 2,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(children: [
-                TextFormField(
-                  controller: _orderTypeDisplayController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                      labelText: 'Sipariş Tipi *',
-                      hintText: 'Sipariş Tipi Seçin',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.list_alt_outlined)),
-                  onTap: () => _showOrderTypeSelectionSheet(context),
-                  validator: (v) =>
-                      (v == null || v.isEmpty || _selectedOrderType == null)
-                          ? 'Sipariş tipi seçimi zorunludur.'
-                          : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: InputDecoration(
-                      labelText: 'Açıklama',
-                      hintText: 'Sipariş için açıklama (opsiyonel)',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.description_outlined)),
-                  maxLines: 3,
-                ),
-              ]),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Sipariş Satırları Bölümü (Yönetim Butonu ile)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildSectionTitle(
-                  'Sipariş Kalemleri (${_currentOrderItems.length})'),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.edit_note),
-                label: const Text('Kalemleri Yönet'),
-                onPressed: _manageOrderItems,
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8)),
-              )
-            ],
-          ),
-          // Sadece mevcut satırların bir özetini göster (düzenleme burada değil)
-          _currentOrderItems.isEmpty
-              ? Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Center(
-                        child: Text(
-                            'Siparişte hiç ürün yok.\nKalemleri Yönet butonu ile ekleyebilirsiniz.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey))),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _currentOrderItems.length,
-                  itemBuilder: (context, index) {
-                    final item = _currentOrderItems[index];
-                    return Card(
-                      elevation: 1,
-                      margin: const EdgeInsets.symmetric(vertical: 4.0),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                            backgroundColor: Theme.of(context)
-                                .primaryColorLight
-                                .withValues(alpha: 0.5),
-                            child: Text('${index + 1}',
-                                style: TextStyle(
-                                    color:
-                                        Theme.of(context).primaryColorDark))),
-                        title: Text(item.itemCode,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w500)),
-                        subtitle: Text('Miktar: ${item.quantity} ${item.unit}'),
-                        // Trailing'de düzenle/sil butonları yok, _manageOrderItems'a yönlendiriyoruz.
+                          child: const Text("Yetkiliyi Temizle",
+                              style: TextStyle(color: primaryColor)),
+                        ),
                       ),
-                    );
-                  },
-                ),
-          const SizedBox(height: 20),
-
-          const SizedBox(height: 30),
-          // FloatingActionButton için ek boşluk
-        ],
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
-    );
+    ).whenComplete(() {
+      // Modal kapandığında ana sayfadaki filtre listelerini sıfırla
+      if (T == Customer) {
+        setState(() {
+          _filteredCustomersForSelection = _allCustomers;
+        });
+      } else if (T == CustomerUser && _selectedCustomer != null) {
+        setState(() {
+          _filteredCustomerUsersForSelection = _allCustomerUsers
+              .where(
+                  (user) => user.accountCode == _selectedCustomer!.accountCode)
+              .toList();
+        });
+      }
+    });
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required IconData icon,
+    bool isRequired = false,
+    VoidCallback? onTap,
+    String? Function(String?)? validator,
+    int? maxLines = 1, // Yeni parametre: Varsayılan olarak 1 satır
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, top: 16.0),
-      child: Text(
-        title,
-        style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).primaryColorDark),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        readOnly: onTap != null,
+        // Eğer onTap varsa, sadece okunabilir yap
+        decoration: InputDecoration(
+          labelText: '$labelText${isRequired ? " *" : ""}',
+          labelStyle: const TextStyle(color: accentColor),
+          hintText: hintText,
+          hintStyle: TextStyle(color: hintColor.withValues(alpha: 0.7)),
+          filled: true,
+          fillColor: cardBackgroundColor,
+          prefixIcon: Icon(icon, color: primaryColor.withValues(alpha: 0.8)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: primaryColor, width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+        ),
+        onTap: onTap,
+        validator: validator,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction ??
+            (maxLines != null && maxLines > 1
+                ? TextInputAction.newline
+                : TextInputAction.done),
+        style: const TextStyle(color: textColor),
       ),
     );
   }
@@ -663,64 +428,237 @@ class _OrderEditPageState extends State<OrderEditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text("SİPARİŞ DÜZENLE",
-            style: TextStyle(
-                color: Theme.of(context).primaryColorDark,
-                fontSize: 16,
-                fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        centerTitle: true,
+        title: const Text(
+          "EDIT ORDER",
+          style: TextStyle(
+              color: primaryColor, fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: backgroundColor,
         elevation: 1,
-        iconTheme: IconThemeData(color: Theme.of(context).primaryColorDark),
-        actions: [
-          if (_currentOrder != null && _currentOrder!.orderStatusId == 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: IconButton(
-                icon: Icon(Icons.cloud_upload_outlined,
-                    color: Theme.of(context).primaryColor),
-                onPressed: () {
-                  // _sendOrderToApi(_currentOrder!.uid);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('API\'ye gönderme özelliği eklenecek.')));
-                },
-                tooltip: 'Siparişi Onaya Gönder',
-              ),
-            )
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildEditFormContent(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: SizedBox(
-          width: double.infinity,
-          child: FloatingActionButton.extended(
-            onPressed: _isSaving ? null : _updateOrder,
-            backgroundColor: Theme.of(context).primaryColor,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.0))
-                : const Icon(Icons.save_alt_outlined, color: Colors.white),
-            label: Text(
-              _isSaving ? 'KAYDEDİLİYOR...' : 'GÜNCELLEMELERİ KAYDET',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
-            ),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: primaryColor),
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    _buildTextField(
+                      controller: _customerDisplayController,
+                      labelText: "Customer",
+                      hintText: "Select Customer",
+                      icon: Icons.business_outlined,
+                      isRequired: true,
+                      onTap: () {
+                        _showItemSelectionSheet<Customer>(
+                          context: context,
+                          title: "Select Customer",
+                          allItems: _allCustomers,
+                          filteredItems: _filteredCustomersForSelection,
+                          // Başlangıçta tüm müşteriler
+                          displayItem: (c) =>
+                              "${c.accountCode} - ${c.customerName ?? ''}",
+                          subtitleItem: (c) => c.taxNumber ?? "Tax Id: Unknown",
+                          onItemSelected: (selected) {
+                            setState(() {
+                              _selectedCustomer = selected;
+                              _customerDisplayController.text =
+                                  "${selected.accountCode} - ${selected.customerName ?? ''}";
+                              _selectedCustomerUser = null;
+                              _userDisplayController.text =
+                                  "Select Customer User (Optional)";
+                              _filteredCustomerUsersForSelection =
+                                  _allCustomerUsers
+                                      .where((user) =>
+                                          user.accountCode ==
+                                          selected.accountCode)
+                                      .toList();
+                            });
+                          },
+                          filterLogic: (query, setModalState) {
+                            // Modal içindeki anlık filtreleme için
+                            setModalState(() {
+                              // Modal'in kendi state'ini güncelle
+                              _filteredCustomersForSelection = query.isEmpty
+                                  ? _allCustomers
+                                  : _allCustomers
+                                      .where((c) =>
+                                          c.accountCode
+                                              .toLowerCase()
+                                              .contains(query.toLowerCase()) ||
+                                          (c.customerName?.toLowerCase() ?? '')
+                                              .contains(query.toLowerCase()))
+                                      .toList();
+                            });
+                          },
+                          searchHint: "Search by account code or name...",
+                        );
+                      },
+                      validator: (value) => (_selectedCustomer == null)
+                          ? 'Customer selection is compulsory.'
+                          : null,
+                    ),
+
+                    // Yetkili Seçimi (Sadece müşteri seçiliyse görünür ve aktif)
+                    if (_selectedCustomer != null)
+                      _buildTextField(
+                        controller: _userDisplayController,
+                        labelText: "Customer User",
+                        hintText: "Select Customer User (Optional)",
+                        icon: Icons.person_outline,
+                        onTap: () {
+                          // Müşteriye ait kullanıcı listesini hazırla
+                          final usersForSelectedCustomer = _allCustomerUsers
+                              .where((user) =>
+                                  user.accountCode ==
+                                  _selectedCustomer!.accountCode)
+                              .toList();
+                          setState(() {
+                            // Ana state'i güncelle, modal bu listeyi alacak
+                            _filteredCustomerUsersForSelection =
+                                usersForSelectedCustomer;
+                          });
+
+                          _showItemSelectionSheet<CustomerUser>(
+                            context: context,
+                            title: "Select Customer User",
+                            allItems: usersForSelectedCustomer,
+                            // Sadece ilgili müşterinin kullanıcıları
+                            filteredItems: _filteredCustomerUsersForSelection,
+                            // Başlangıçta o müşterinin kullanıcıları
+                            displayItem: (u) => "${u.id} - ${u.contactName}",
+                            subtitleItem: (u) => u.departmentName,
+                            onItemSelected: (selected) {
+                              setState(() {
+                                _selectedCustomerUser = selected;
+                                _userDisplayController.text =
+                                    "${selected.id} - ${selected.contactName}";
+                              });
+                            },
+                            filterLogic: (query, setModalState) {
+                              setModalState(() {
+                                _filteredCustomerUsersForSelection = query
+                                        .isEmpty
+                                    ? usersForSelectedCustomer // Temel liste
+                                    : usersForSelectedCustomer
+                                        .where((user) =>
+                                            user.contactName
+                                                .toLowerCase()
+                                                .contains(
+                                                    query.toLowerCase()) ||
+                                            user.id.toString().contains(query))
+                                        .toList();
+                              });
+                            },
+                            searchHint: "Search Custumer User ...",
+                          );
+                        },
+                      ),
+                    if (_selectedCustomer == null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: TextFormField(
+                          enabled: false,
+                          decoration: InputDecoration(
+                            labelText: "Customer User",
+                            labelStyle: const TextStyle(color: hintColor),
+                            hintText: "Select Customer First",
+                            hintStyle: TextStyle(
+                                color: hintColor.withValues(alpha: 0.7)),
+                            filled: true,
+                            fillColor:
+                                cardBackgroundColor.withValues(alpha: 0.5),
+                            prefixIcon: Icon(Icons.person_outline,
+                                color: hintColor.withValues(alpha: 0.5)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    _buildTextField(
+                      controller: _orderTypeDisplayController,
+                      labelText: "Order Type",
+                      hintText: "Select Order Type",
+                      icon: Icons.list_alt_outlined,
+                      isRequired: true,
+                      onTap: () {
+                        _showItemSelectionSheet<SaleOrderType>(
+                          context: context,
+                          title: "Select Order Type",
+                          allItems: _allOrderTypes,
+                          filteredItems: _allOrderTypes,
+                          displayItem: (st) => st.typeName,
+                          subtitleItem: (st) => "ID: ${st.id}",
+                          onItemSelected: (selected) {
+                            setState(() {
+                              _selectedOrderType = selected;
+                              _orderTypeDisplayController.text =
+                                  selected.typeName;
+                            });
+                          },
+                          filterLogic: (query, setModalState) {
+                            setModalState(() {
+                              _allOrderTypes;
+                            });
+                          },
+                          searchHint: "Search Order Type...",
+                        );
+                      },
+                      validator: (value) => (_selectedOrderType == null)
+                          ? 'Order Type selection is compulsory.'
+                          : null,
+                    ),
+                    _buildTextField(
+                      controller: _descriptionController,
+                      labelText: "Description",
+                      hintText: "Description of Order (optional)",
+                      icon: Icons.description_outlined,
+                      maxLines: 8,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2.0))
+                          : const Icon(Icons.check_outlined,
+                              color: Colors.white),
+                      label: Text(
+                        _isSaving ? 'SAVING...' : 'UPDATE ORDER',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepOrange,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 2,
+                      ),
+                      onPressed: _isSaving ? null : _updateOrderHeader,
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

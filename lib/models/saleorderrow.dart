@@ -56,7 +56,7 @@ class SaleOrderRow {
             m['itemSize'],
             m['itemPageNumber'],
             m['unit'],
-            m['quantity'],
+            (m['quantity'] as num).toDouble(),
             m['unitPrice'],
             m['total'],
             m['taxRate'],

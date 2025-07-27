@@ -14,6 +14,7 @@ import '../database/db_helper.dart';
 import '../widgets/bottomnavbar.dart';
 import '../widgets/drawer_menu.dart';
 import 'basketlist.dart';
+import 'full_screen_image_page.dart';
 
 class DetailBasketItem extends StatefulWidget {
   final int itemId;
@@ -883,30 +884,45 @@ class _DetailBasketItemState extends State<DetailBasketItem> {
               itemCount: _pickedFiles.length,
               itemBuilder: (context, index) {
                 final file = _pickedFiles[index];
+                final String imagePath = file.path;
+                final String uniqueHeroTag = 'imageHero_$imagePath';
+
                 return Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Stack(
                     alignment: Alignment.topRight,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: Colors.grey.shade400, width: 0.5)),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: Image.file(
-                            File(file.path),
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                    width: 90,
-                                    height: 90,
-                                    color: Colors.grey[200],
-                                    child: Icon(Icons.broken_image_outlined,
-                                        color: Colors.grey[400])),
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => FullScreenImagePage(
+                                    filePath: imagePath,
+                                    heroTag: uniqueHeroTag,
+                                  )));
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.grey.shade400, width: 0.5)),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: Hero(
+                              tag: uniqueHeroTag,
+                              child: Image.file(
+                                File(file.path),
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                        width: 90,
+                                        height: 90,
+                                        color: Colors.grey[200],
+                                        child: Icon(Icons.broken_image_outlined,
+                                            color: Colors.grey[400])),
+                              ),
+                            ),
                           ),
                         ),
                       ),

@@ -193,6 +193,21 @@ class DbHelper {
         whereArgs: [basketId, imageFile.path]);
   }
 
+  Future<int> addOrderXFileuid(String uid, XFile imageFile) async {
+    Database db = await instance.database;
+    String sql =
+        "INSERT INTO SaleOrderDocument (saleOrderUid,pathName) VALUES('$uid','${imageFile.path}');";
+    return await db.rawInsert(sql);
+  }
+
+  Future<int> addOrderRowXFileuid(
+      String uid, String rowUid, XFile imageFile) async {
+    Database db = await instance.database;
+    String sql =
+        "INSERT INTO SaleOrderDocument (saleOrderUid, saleOrderRowUid ,pathName) VALUES('$uid','$rowUid','${imageFile.path}');";
+    return await db.rawInsert(sql);
+  }
+
   Future<int> removeOrderXFile(String uid, XFile imageFile) async {
     Database db = await instance.database;
     return await db.delete("SaleOrderDocument",
@@ -203,6 +218,12 @@ class DbHelper {
   Future<int> removeOrderFile(int id) async {
     Database db = await instance.database;
     return await db.delete("SaleOrderDocument", where: "id=?", whereArgs: [id]);
+  }
+
+  Future<int> removeOrderRowFiles(String uid) async {
+    Database db = await instance.database;
+    return await db.delete("SaleOrderDocument",
+        where: "saleOrderRowUid=?", whereArgs: [uid]);
   }
 
   // Color
@@ -567,6 +588,14 @@ class DbHelper {
     await db.delete("SaleOrderRow", where: "orderUid=?", whereArgs: [uid]);
   }
 
+  Future<void> removeOrderRow(String uid) async {
+    Database? db = await instance.database;
+
+    await db.delete("SaleOrderRow", where: "uid=?", whereArgs: [uid]);
+    await db.delete("SaleOrderDocument",
+        where: "saleOrderRowUid=?", whereArgs: [uid]);
+  }
+
   // Order
   Future<List<SaleOrderRow>> getOrderRows(String uid) async {
     Database? db = await instance.database;
@@ -580,11 +609,57 @@ class DbHelper {
     });
   }
 
+  Future<SaleOrderRow?> getOrderRow(String uid) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      "SaleOrderRow",
+      where: "uid=?",
+      whereArgs: [uid],
+      limit: 1,
+    );
+
+    if (maps.isNotEmpty) {
+      return SaleOrderRow.fromMap(maps.first);
+    } else {
+      return null;
+    }
+  }
+
   Future<List<SaleOrderDocument>?> getOrderDocuments(String uid) async {
     Database? db = await instance.database;
 
     final List<Map<String, dynamic>> maps = await db.query("SaleOrderDocument",
         where: "saleOrderUid=? AND saleOrderRowUid IS NULL",
+        whereArgs: [uid],
+        orderBy: "id");
+
+    return List.generate(maps.length, (i) {
+      SaleOrderDocument? orderDocument = SaleOrderDocument.fromMap(maps[i]);
+      return orderDocument;
+    });
+  }
+
+  Future<List<SaleOrderDocument>?> getOrderRowDocuments(
+      String uid, String rowUid) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query("SaleOrderDocument",
+        where: "saleOrderUid=? AND saleOrderRowUid=?",
+        whereArgs: [uid, rowUid],
+        orderBy: "id");
+
+    return List.generate(maps.length, (i) {
+      SaleOrderDocument? orderDocument = SaleOrderDocument.fromMap(maps[i]);
+      return orderDocument;
+    });
+  }
+
+  Future<List<SaleOrderDocument>?> getOrderRowAllDocuments(String uid) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query("SaleOrderDocument",
+        where: "saleOrderUid=? AND saleOrderRowUid IS NOT NULL",
         whereArgs: [uid],
         orderBy: "id");
 
@@ -774,6 +849,22 @@ class DbHelper {
       } catch (e) {
         //print("Error Updating Order: $e");
       }
+    }
+  }
+
+  Future<void> updateOrderRow(
+      String orderRowUid, double quantity, String description) async {
+    Database? db = await instance.database;
+    try {
+      String sql =
+          "UPDATE SaleOrderRow SET description = ?, quantity = ? WHERE uid = ?";
+      await db.rawUpdate(sql, [
+        description,
+        quantity,
+        orderRowUid,
+      ]);
+    } catch (e) {
+      //print("Error Updating Order: $e");
     }
   }
 
