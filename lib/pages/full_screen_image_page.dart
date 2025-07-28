@@ -8,10 +8,10 @@ class FullScreenImagePage extends StatelessWidget {
   final String? heroTag; // Opsiyonel: Hero animasyonu için
 
   const FullScreenImagePage({
-    Key? key,
+    super.key,
     required this.filePath,
     this.heroTag,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,7 @@ class FullScreenImagePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Center(
         child: heroTag != null

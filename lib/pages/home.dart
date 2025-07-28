@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:dveci_app/models/saleordertype.dart';
+import 'package:dveci_app/pages/order_row_detail.dart';
 import 'package:dveci_app/pages/syncronize.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +14,6 @@ import 'basketlist.dart';
 import 'customerlist.dart';
 import 'orderlist.dart';
 import 'orderdetail.dart';
-
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -79,7 +79,6 @@ class _HomeState extends State<Home> {
   }
 
   IconData _getStatusIcon(int? statusId) {
-
     switch (statusId) {
       case 0:
         return Icons.hourglass_empty_rounded;
@@ -91,7 +90,6 @@ class _HomeState extends State<Home> {
         return Icons.info_outline_rounded;
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +103,8 @@ class _HomeState extends State<Home> {
           future: _dataFuture,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
-              final employee = snapshot.data!['employee'] as UserAuthentication?;
+              final employee =
+                  snapshot.data!['employee'] as UserAuthentication?;
               return Text(
                 employee?.employeeName ?? "Home",
                 style: GoogleFonts.openSans(
@@ -121,11 +120,13 @@ class _HomeState extends State<Home> {
         backgroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary), // Drawer icon rengi
+        iconTheme: IconThemeData(
+            color: Theme.of(context).colorScheme.primary), // Drawer icon rengi
       ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
-        color: Theme.of(context).colorScheme.primary, // Yenileme indicator rengi
+        color:
+            Theme.of(context).colorScheme.primary, // Yenileme indicator rengi
         child: FutureBuilder<Map<String, dynamic>>(
           future: _dataFuture,
           builder: (context, snapshot) {
@@ -156,12 +157,12 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildDashboardContent(
-      int basketCount,
-      int orderCount,
-      int customerCount,
-      int fourthCardCount, // 4. kart için sayı
-      List<SaleOrder> recentOrders,
-      ) {
+    int basketCount,
+    int orderCount,
+    int customerCount,
+    int fourthCardCount, // 4. kart için sayı
+    List<SaleOrder> recentOrders,
+  ) {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
@@ -206,7 +207,6 @@ class _HomeState extends State<Home> {
                   ));
                 },
               ),
-
               _buildDashboardCard(
                 count: fourthCardCount,
                 title: "Synchronise",
@@ -216,7 +216,6 @@ class _HomeState extends State<Home> {
                   Navigator.of(context).push<String>(MaterialPageRoute(
                     builder: (context) => const Syncronize(),
                   ));
-
                 },
               ),
             ],
@@ -224,13 +223,16 @@ class _HomeState extends State<Home> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Text(
-              "Recent Orders",
-              style: GoogleFonts.openSans(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Center(
+              child: Text(
+                "Recent Orders",
+                style: GoogleFonts.openSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
+                ),
               ),
             ),
           ),
@@ -241,7 +243,8 @@ class _HomeState extends State<Home> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.history_toggle_off_rounded, size: 60, color: Colors.grey.shade400),
+                  Icon(Icons.history_toggle_off_rounded,
+                      size: 60, color: Colors.grey.shade400),
                   const SizedBox(height: 16),
                   Text(
                     "No order has been created yet.",
@@ -254,7 +257,7 @@ class _HomeState extends State<Home> {
         else
           SliverList(
             delegate: SliverChildBuilderDelegate(
-                  (BuildContext context, int index) {
+              (BuildContext context, int index) {
                 final order = recentOrders[index];
                 return _buildRecentOrderItem(order);
               },
@@ -267,18 +270,16 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildRecentOrderItem(SaleOrder order) {
-
     var orderTypeName = _saleOrderTypes.firstWhereOrNull(
-          (type) => type?.id == (order.orderTypeId!),
+      (type) => type?.id == (order.orderTypeId!),
     );
-
 
     final statusColor = _getStatusColor(order.orderStatusId);
     final statusIcon = _getStatusIcon(order.orderStatusId);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-      elevation: 1,
+      elevation: 0.4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
       child: InkWell(
         borderRadius: BorderRadius.circular(10.0),
@@ -320,46 +321,52 @@ class _HomeState extends State<Home> {
                     const SizedBox(height: 4),
                     Text(
                       orderTypeName?.typeName ?? "",
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     RichText(
-                      overflow: TextOverflow.ellipsis, // Uzun metinler için taşma kontrolü
-                      maxLines: 1,                    // Tek satırda kalmasını sağla
+                      overflow: TextOverflow.ellipsis,
+                      // Uzun metinler için taşma kontrolü
+                      maxLines: 1,
+                      // Tek satırda kalmasını sağla
                       text: TextSpan(
                         // Varsayılan stil (eğer tüm span'ler aynı stildeyse burada tanımlanabilir)
                         // style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13, color: Colors.grey.shade600),
                         children: <TextSpan>[
                           TextSpan(
                             text: order.accountCode,
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500), // İsterseniz stili biraz farklılaştırabilirsiniz
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight
+                                    .w500), // İsterseniz stili biraz farklılaştırabilirsiniz
                           ),
                           TextSpan(
                             text: ' - ', // İki metin arasına ayırıcı
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade500), // Ayırıcı için farklı bir stil
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey
+                                    .shade500), // Ayırıcı için farklı bir stil
                           ),
                           TextSpan(
-                            text:order.orderDate != null
+                            text: order.orderDate != null
                                 ? "${order.orderDate!.day.toString().padLeft(2, '0')}.${order.orderDate!.month.toString().padLeft(2, '0')}.${order.orderDate!.year} ${order.orderDate!.hour.toString().padLeft(2, '0')}:${order.orderDate!.minute.toString().padLeft(2, '0')}"
                                 : "",
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade600),
                           ),
                         ],
                       ),
                     ),
-
-
-
-
-
-
-
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-
-              Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade400, size: 16),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.grey.shade400, size: 16),
             ],
           ),
         ),
@@ -375,9 +382,11 @@ class _HomeState extends State<Home> {
     required VoidCallback onTap,
   }) {
     return Card(
-      elevation: 1,
+      elevation: 0.0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15.0), // Daha yuvarlak köşeler
+        borderRadius: BorderRadius.circular(
+          15.0,
+        ),
       ),
       child: InkWell(
         onTap: onTap,
@@ -388,12 +397,12 @@ class _HomeState extends State<Home> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center, // İçerik ortalandı
             children: [
-
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.0),
                 ),
                 child: Icon(
                   icon,
@@ -413,7 +422,6 @@ class _HomeState extends State<Home> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-
               const SizedBox(height: 10),
               Text(
                 "$count",
@@ -424,8 +432,6 @@ class _HomeState extends State<Home> {
                 ),
                 textAlign: TextAlign.center,
               ),
-
-
             ],
           ),
         ),
@@ -440,11 +446,15 @@ class _HomeState extends State<Home> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 60),
+            Icon(Icons.error_outline_rounded,
+                color: Colors.red.shade400, size: 60),
             const SizedBox(height: 16),
             Text(
               'Error Accured!',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -461,7 +471,8 @@ class _HomeState extends State<Home> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             )
           ],
@@ -477,11 +488,15 @@ class _HomeState extends State<Home> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.sentiment_dissatisfied_outlined, color: Colors.grey.shade400, size: 60),
+            Icon(Icons.sentiment_dissatisfied_outlined,
+                color: Colors.grey.shade400, size: 60),
             const SizedBox(height: 16),
             const Text(
               "Data not found.",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black54),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -498,7 +513,8 @@ class _HomeState extends State<Home> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             )
           ],

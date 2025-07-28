@@ -5,7 +5,7 @@ import '../pages/customerlist.dart';
 import '../pages/dveciolors.dart';
 import '../pages/dveciprefixes.dart';
 import '../pages/dvecisizes.dart';
-import '../pages/login.dart';
+import '../pages/log_out.dart';
 import '../pages/orderlist.dart';
 import '../pages/syncronize.dart';
 
@@ -16,7 +16,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
       children: [
         DrawerHeader(
           decoration: const BoxDecoration(
-            color: Colors.brown,
+            color: Color(0xFFF08080),
           ),
           child: Row(
             children: [
@@ -138,7 +138,7 @@ Widget drawerMenu(BuildContext context, String employeeName) {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-              return const LoginPage();
+              return const LogoutPage();
             }));
           },
         ),

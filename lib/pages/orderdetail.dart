@@ -45,6 +45,7 @@ class _OrderDetailState extends State<OrderDetail> {
   final List<XFile> pickedFiles = [];
 
   bool _isSyncing = false;
+  bool _isDeleting = false;
   final bool _isLoading = false;
 
   static const Color primaryColor = Color(0xFFB79C91);
@@ -115,20 +116,9 @@ class _OrderDetailState extends State<OrderDetail> {
   }
 
   Future<void> _refreshDetails() async {
-    setState(() {
-      _detailDataFuture = _loadAllDetails();
-    });
-    await _detailDataFuture;
-  }
-
-  Future<void> _sendToCloud() async {
-    if (_isSyncing) return;
-    setState(() {
-      _isSyncing = true;
-    });
-
     try {
-      var message = await _repository.sendAppOrder(widget.uid);
+      var message = await _repository.getAppOrder(widget.uid);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -138,7 +128,89 @@ class _OrderDetailState extends State<OrderDetail> {
           ),
         );
       }
-      _refreshDetails();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Synchronization error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
+
+    setState(() {
+      _detailDataFuture = _loadAllDetails();
+    });
+    await _detailDataFuture;
+  }
+
+  Future<void> _sendToCloud() async {
+    if (_isSyncing || _order == null) return;
+    setState(() {
+      _isSyncing = true;
+    });
+
+    List<XFile> orderHeaderImages = [];
+
+    for (var doc in _orderDocuments) {
+      if (doc.pathName != null && doc.pathName!.isNotEmpty) {
+        try {
+          final file = File(doc.pathName!);
+          if (await file.exists()) {
+            if (!orderHeaderImages.any((xf) => xf.path == doc.pathName!)) {
+              orderHeaderImages.add(XFile(doc.pathName!));
+            }
+          }
+        } catch (e) {
+          //print( "Başlık görseli XFile'a çevrilirken hata: ${doc.pathName} - $e");
+        }
+      }
+    }
+
+    Map<String, List<XFile>> orderRowImages = {};
+    if (_orderRows.isNotEmpty && _orderRowDocuments.isNotEmpty) {
+      for (var rowDoc in _orderRowDocuments) {
+        final String? rowUid = rowDoc.saleOrderRowUid;
+        if (rowUid != null &&
+            rowDoc.pathName != null &&
+            rowDoc.pathName!.isNotEmpty) {
+          try {
+            final file = File(rowDoc.pathName!);
+            if (await file.exists()) {
+              final xFile = XFile(rowDoc.pathName!);
+              if (orderRowImages.containsKey(rowUid)) {
+                if (!orderRowImages[rowUid]!
+                    .any((xf) => xf.path == xFile.path)) {
+                  orderRowImages[rowUid]!.add(xFile);
+                }
+              } else {
+                orderRowImages[rowUid] = [xFile];
+              }
+            }
+          } catch (e) {
+            // print("Satır görseli XFile'a çevrilirken hata: ${rowDoc.pathName} - $e");
+          }
+        }
+      }
+    }
+
+    try {
+      var message = await _repository.sendAppOrder(widget.uid);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      _refreshDetails(); // Sipariş durumunu ve diğer detayları güncellemek için
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -158,6 +230,71 @@ class _OrderDetailState extends State<OrderDetail> {
     Navigator.of(context).push(MaterialPageRoute(builder: (context) {
       return OrderEditPage(orderUid: widget.uid);
     }));
+  }
+
+  Future<void> _sendToDelete() async {
+    if (_isDeleting || _isSyncing) return;
+
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Order'),
+          content: Text(
+              'Are you sure you want to delete this order ("${_order?.orderNumber ?? widget.uid}") permanently? This process cannot be taken back..'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Hayır
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true), // Evet
+              child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete != true) {
+      return;
+    }
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await _dbHelper.removeOrder(widget.uid);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Order No. "${_order?.orderNumber ?? widget.uid}" has successfully deleted.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An error occurred when deleting the order'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false; // Silme işlemi tamamlandı olarak işaretle
+        });
+      }
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -241,28 +378,32 @@ class _OrderDetailState extends State<OrderDetail> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Color(0xFFB79C91)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.deepOrange),
-            onPressed: _isSyncing ? null : _sendToEdit,
-            tooltip: 'EDIT ORDER',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_forever_outlined, color: Colors.red),
-            onPressed: _isSyncing ? null : _sendToEdit,
-            tooltip: 'EDIT ORDER',
-          ),
-          IconButton(
-            icon: _isSyncing
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.blue[700]))
-                : Icon(Icons.cloud_upload_outlined,
-                    color: Colors.blue[700], size: 28),
-            onPressed: _isSyncing ? null : _sendToCloud,
-            tooltip: 'SEND ORDER',
-          ),
+          if (_order != null && _order!.orderStatusId == 0)
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.deepOrange),
+              onPressed: _isSyncing ? null : _sendToEdit,
+              tooltip: 'EDIT ORDER',
+            ),
+          if (_order != null && _order!.orderStatusId == 0)
+            IconButton(
+              icon:
+                  const Icon(Icons.delete_forever_outlined, color: Colors.red),
+              onPressed: _isSyncing ? null : _sendToDelete,
+              tooltip: 'DELETE ORDER',
+            ),
+          if (_order != null && _order!.orderStatusId == 0)
+            IconButton(
+              icon: _isSyncing
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.blue[700]))
+                  : Icon(Icons.cloud_upload_outlined,
+                      color: Colors.blue[700], size: 28),
+              onPressed: _isSyncing ? null : _sendToCloud,
+              tooltip: 'SEND ORDER',
+            ),
           if (_order != null && _order!.orderStatusId == 1)
             IconButton(
               icon: const Icon(Icons.refresh_rounded, color: Color(0xFFB79C91)),

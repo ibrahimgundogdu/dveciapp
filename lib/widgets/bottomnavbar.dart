@@ -7,8 +7,6 @@ import '../pages/orderlist.dart';
 import '../pages/scanqr.dart';
 
 Widget bottomWidget(BuildContext context, int currentIndex) {
-
-
   return BottomNavigationBar(
     type: BottomNavigationBarType.fixed,
     items: const [
@@ -28,7 +26,6 @@ Widget bottomWidget(BuildContext context, int currentIndex) {
         icon: Icon(Icons.shopping_bag_outlined),
         label: 'Basket',
       ),
-
       BottomNavigationBarItem(
         icon: Icon(Icons.folder_copy_outlined),
         label: 'Orders',
@@ -43,32 +40,32 @@ Widget bottomWidget(BuildContext context, int currentIndex) {
     selectedFontSize: 11,
     unselectedFontSize: 11,
     onTap: (index) {
-      if (index == 0) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return const Home();
-        }));
-      }
-      if (index == 1) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return const CustomerList();
-        }));
-      }
-      if (index == 2) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return const ScanQR();
-        }));
-      }
-      if (index == 3) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return const BasketList();
-        }));
+      Widget nextPage;
+      switch (index) {
+        case 0:
+          nextPage = const Home();
+          break;
+        case 1:
+          nextPage = const CustomerList();
+          break;
+        case 2:
+          nextPage = const ScanQR();
+          break;
+        case 3:
+          nextPage = const BasketList();
+          break;
+        case 4:
+          nextPage = const OrderList();
+          break;
+        default:
+          return;
       }
 
-      if (index == 4) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return const OrderList();
-        }));
-      }
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => nextPage),
+        (Route<dynamic> route) => false,
+      );
     },
   );
 }

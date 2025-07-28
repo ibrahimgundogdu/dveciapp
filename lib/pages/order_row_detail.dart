@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../database/db_helper.dart';
+import '../models/saleorder.dart';
 import '../models/saleorderrow.dart';
 import '../models/saleorderdocument.dart';
 import 'full_screen_image_page.dart';
@@ -33,6 +34,7 @@ class _OrderDetailRowEditPageState extends State<OrderDetailRowEditPage> {
   final DbHelper _dbHelper = DbHelper.instance;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  SaleOrder? _currentOrder;
   SaleOrderRow? _currentRow;
 
   final ImagePicker _picker = ImagePicker();
@@ -56,6 +58,12 @@ class _OrderDetailRowEditPageState extends State<OrderDetailRowEditPage> {
   Future<void> _loadRowDetails() async {
     setState(() => _isLoading = true);
     try {
+      _currentOrder = await _dbHelper.getOrder(widget.orderUid);
+
+      if (_currentOrder == null) {
+        throw Exception("Order not Found.");
+      }
+
       _currentRow = await _dbHelper.getOrderRow(widget.orderRowUid);
       if (_currentRow == null) {
         throw Exception("Order Item not Found.");
@@ -444,31 +452,33 @@ class _OrderDetailRowEditPageState extends State<OrderDetailRowEditPage> {
                     const SizedBox(height: 30),
                     _buildFileAttachmentSection(),
                     const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2.0))
-                          : const Icon(Icons.save_alt_outlined,
-                              color: Colors.white),
-                      label: Text(
-                        _isSaving ? 'SAVING...' : 'UPDATE ITEM',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16),
+                    if (_currentOrder != null &&
+                        _currentOrder?.orderStatusId == 0)
+                      ElevatedButton.icon(
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2.0))
+                            : const Icon(Icons.save_alt_outlined,
+                                color: Colors.white),
+                        label: Text(
+                          _isSaving ? 'SAVING...' : 'UPDATE ITEM',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                        ),
+                        onPressed: _isSaving ? null : _saveChanges,
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepOrange,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        elevation: 2,
-                      ),
-                      onPressed: _isSaving ? null : _saveChanges,
-                    ),
                   ],
                 ),
               ),

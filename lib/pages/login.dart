@@ -57,12 +57,12 @@ class _LoginPageState extends State<LoginPage> {
         } else {
           setState(() {
             _statusMessage = result?.message ??
-                'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.';
+                'The sign in is unsuccessful. Please check your information.';
           });
         }
       } catch (e) {
         setState(() {
-          _statusMessage = 'Bir hata oluştu: ${e.toString()}';
+          _statusMessage = 'An error occurred';
         });
       } finally {
         if (mounted) {
@@ -117,10 +117,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLoginPageContent(double screenHeight, double screenWidth) {
-    // Ana tema renklerini veya markanıza özel renkleri kullanabilirsiniz.
-    // Bu örnekte varsayılan tema renkleri kullanılıyor.
     final Color primaryColor = Theme.of(context).colorScheme.primary;
-    final Color secondaryColor = Theme.of(context).colorScheme.secondary;
     final Color textColor =
         Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87;
     final Color hintColor = Colors.grey.shade600;
@@ -130,8 +127,8 @@ class _LoginPageState extends State<LoginPage> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            primaryColor.withValues(alpha: 0.9),
-            secondaryColor.withValues(alpha: 0.8),
+            Colors.pink.shade100,
+            Colors.pink.shade50,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -146,44 +143,37 @@ class _LoginPageState extends State<LoginPage> {
             children: <Widget>[
               Padding(
                 padding: EdgeInsets.only(
-                    bottom: screenHeight * 0.04, top: screenHeight * 0.06),
+                    bottom: screenHeight * 0.05, top: screenHeight * 0.01),
                 child: Column(
                   children: [
-                    Icon(Icons.store_mall_directory_outlined,
-                        // Uygulamanızı temsil eden bir ikon
-                        size: screenHeight * 0.1,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            blurRadius: 15.0,
-                            color: Colors.black.withValues(alpha: 0.4),
-                            offset: const Offset(3.0, 3.0),
+                    Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.pink.shade200,
+                          width: 5.0,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: Padding(
+                          padding: const EdgeInsets.all(0),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.cover,
                           ),
-                        ]),
-                    SizedBox(height: screenHeight * 0.01),
-                    Text(
-                      'Dveci',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.comfortaa(
-                          // Daha modern ve yumuşak bir font
-                          fontSize: 42,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              blurRadius: 10.0,
-                              color: Colors.black.withValues(alpha: 0.3),
-                              offset: const Offset(2.0, 2.0),
-                            ),
-                          ]),
+                        ),
+                      ),
                     ),
+                    SizedBox(height: screenHeight * 0.01),
                   ],
                 ),
               ),
               Card(
-                elevation: 10.0,
+                elevation: 0.4,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25.0),
+                  borderRadius: BorderRadius.circular(20.0),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -194,12 +184,12 @@ class _LoginPageState extends State<LoginPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Text(
-                          'Giriş Yap',
+                          'Sign In',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.openSans(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: textColor,
+                            fontSize: 16,
+                            color: Colors.brown.shade400,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 20.0),
@@ -228,7 +218,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-              SizedBox(height: screenHeight * 0.05), // Altta biraz boşluk
+              SizedBox(height: screenHeight * 0.05),
+              const Center(
+                child: Padding(
+                    padding: EdgeInsets.only(bottom: 15.0),
+                    child: Text('V 1.0')),
+              ),
             ],
           ),
         ),
@@ -242,17 +237,18 @@ class _LoginPageState extends State<LoginPage> {
       keyboardType: TextInputType.emailAddress,
       style: TextStyle(color: textColor),
       decoration: InputDecoration(
-        hintText: "E-posta Adresiniz",
+        hintText: "E-mail address",
         hintStyle: TextStyle(color: hintColor.withValues(alpha: 0.7)),
-        prefixIcon: Icon(Icons.alternate_email_rounded, color: hintColor),
+        prefixIcon:
+            Icon(Icons.alternate_email_rounded, color: hintColor, size: 18),
         filled: true,
-        fillColor: Colors.grey.shade100.withValues(alpha: 0.8),
+        fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(8.0),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(8.0),
           borderSide: BorderSide(
               color: Theme.of(context).colorScheme.primary, width: 1.5),
         ),
@@ -261,10 +257,10 @@ class _LoginPageState extends State<LoginPage> {
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'E-posta boş bırakılamaz';
+          return 'E-mail cannot be empty!';
         }
         if (!value.contains('@') || !value.contains('.')) {
-          return 'Geçerli bir e-posta adresi giriniz';
+          return 'Enter a valid e-mail address';
         }
         return null;
       },
@@ -277,9 +273,10 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: _obscurePassword,
       style: TextStyle(color: textColor),
       decoration: InputDecoration(
-        hintText: "Şifreniz",
+        hintText: "Password",
         hintStyle: TextStyle(color: hintColor.withValues(alpha: 0.7)),
-        prefixIcon: Icon(Icons.lock_outline_rounded, color: hintColor),
+        prefixIcon:
+            Icon(Icons.lock_outline_rounded, color: hintColor, size: 18),
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
@@ -294,7 +291,7 @@ class _LoginPageState extends State<LoginPage> {
           },
         ),
         filled: true,
-        fillColor: Colors.grey.shade100.withValues(alpha: 0.8),
+        fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.0),
           borderSide: BorderSide.none,
@@ -309,12 +306,8 @@ class _LoginPageState extends State<LoginPage> {
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Şifre boş bırakılamaz';
+          return 'The password cannot be empty';
         }
-        // İsteğe bağlı: Minimum şifre uzunluğu kontrolü
-        // if (value.length < 6) {
-        //   return 'Şifre en az 6 karakter olmalıdır';
-        // }
         return null;
       },
     );
@@ -322,24 +315,24 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildLoginButton(Color primaryColor) {
     return SizedBox(
+      height: 46,
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: const Color(0xFFF08080),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
+            borderRadius: BorderRadius.circular(30.0),
           ),
-          elevation: 5,
-          shadowColor: primaryColor.withValues(alpha: 0.4),
+          elevation: 1,
+          shadowColor: primaryColor.withValues(alpha: 0.1),
         ),
         onPressed: _isLoading ? null : _login,
-        // Yükleme sırasında butonu devre dışı bırak
         child: Text(
-          'GİRİŞ YAP',
+          'LOGIN',
           style: GoogleFonts.openSans(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),

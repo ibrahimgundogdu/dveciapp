@@ -388,6 +388,25 @@ class DbHelper {
     return customer;
   }
 
+  Future<Map<String, Customer>> getCustomersByAccountCodes(
+      List<String> accountCodes) async {
+    if (accountCodes.isEmpty) {
+      return {};
+    }
+    final db = await instance.database;
+    final placeholders =
+        List.generate(accountCodes.length, (index) => '?').join(',');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'Customer',
+      where: 'accountCode IN ($placeholders)',
+      whereArgs: accountCodes,
+    );
+
+    return {
+      for (var map in maps) map['accountCode'] as String: Customer.fromMap(map)
+    };
+  }
+
   Future<int> addCustomer(Customer customer) async {
     Database db = await instance.database;
 
@@ -662,6 +681,18 @@ class DbHelper {
         where: "saleOrderUid=? AND saleOrderRowUid IS NOT NULL",
         whereArgs: [uid],
         orderBy: "id");
+
+    return List.generate(maps.length, (i) {
+      SaleOrderDocument? orderDocument = SaleOrderDocument.fromMap(maps[i]);
+      return orderDocument;
+    });
+  }
+
+  Future<List<SaleOrderDocument>?> getOrderAllDocuments(String uid) async {
+    Database? db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query("SaleOrderDocument",
+        where: "saleOrderUid=?", whereArgs: [uid], orderBy: "id");
 
     return List.generate(maps.length, (i) {
       SaleOrderDocument? orderDocument = SaleOrderDocument.fromMap(maps[i]);
